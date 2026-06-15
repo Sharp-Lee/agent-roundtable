@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# roundtable -- a tiny, dependency-light relay for a 3-party agent workflow.
+#
+#   you (arbiter) + Claude Code (lead) + Codex (impl)
+#
+# It does ONE thing: removes the copy-paste between the two CLI panes by
+# relaying mailbox-file writes between them (see bin/relay.py). It never
+# touches the agents' model loop or native abilities.
+#
+# Subcommands:
+#   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
+#   roundtable start  [dir]   Launch the tmux session (lead | impl | relay) and attach
+#   roundtable stop           Kill the tmux session
+#
+# Env overrides:
+#   CLAUDE_CMD (default: claude)   command to start the lead CLI
+#   CODEX_CMD  (default: codex)    command to start the impl CLI
+#   SESSION    (default: roundtable)
+set -euo pipefail
+
+TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SESSION="${SESSION:-roundtable}"
+CLAUDE_CMD="${CLAUDE_CMD:-claude}"
+CODEX_CMD="${CODEX_CMD:-codex}"
+
+die() { echo "roundtable: $*" >&2; exit 1; }
+
+cmd_init() {
+  local target="${1:-$PWD}"
+  target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
+  local rt="$target/.roundtable"
+  mkdir -p "$rt/prompts"
+
+  # Durable artifacts (do not clobber if they already exist).
+  [ -f "$rt/requirements.md" ] || cp "$TOOL_ROOT/templates/requirements.md" "$rt/requirements.md"
+  [ -f "$rt/decisions.md" ]    || cp "$TOOL_ROOT/templates/decisions.md"    "$rt/decisions.md"
+  [ -f "$rt/channel.md" ]      || cp "$TOOL_ROOT/templates/channel.md"      "$rt/channel.md"
+
+  # Mailboxes (transient) + role contracts (always refreshed from the tool).
+  : > "$rt/to-lead.md"
+  : > "$rt/to-impl.md"
+  cp "$TOOL_ROOT/prompts/lead.md" "$rt/prompts/lead.md"
+  cp "$TOOL_ROOT/prompts/impl.md" "$rt/prompts/impl.md"
+
+  cat > "$rt/.gitignore" <<'EOF'
+# Transient relay state -- not worth committing.
+to-lead.md
+to-impl.md
+panes.env
+*.lock
+EOF
+
+  echo "Initialized roundtable in $rt"
+  echo "Durable (commit these):  requirements.md  decisions.md  channel.md  prompts/"
+  echo "Next:  cd '$target' && roundtable start"
+}
+
+cmd_start() {
+  local target="${1:-$PWD}"
+  target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
+  local rt="$target/.roundtable"
+  [ -d "$rt" ] || die "no .roundtable in $target -- run 'roundtable init' first"
+  command -v tmux >/dev/null 2>&1 || die "tmux is required"
+
+  if tmux has-session -t "$SESSION" 2>/dev/null; then
+    die "session '$SESSION' already exists -- attach with 'tmux attach -t $SESSION' or 'roundtable stop' first"
+  fi
+
+  # Two side-by-side panes: left = lead (Claude Code), right = impl (Codex).
+  tmux new-session -d -s "$SESSION" -c "$target" -x "$(tput cols 2>/dev/null || echo 200)" -y "$(tput lines 2>/dev/null || echo 50)"
+  tmux split-window -h -t "$SESSION:0" -c "$target"
+  tmux select-pane -t "$SESSION:0.0" -T lead
+  tmux select-pane -t "$SESSION:0.1" -T impl
+  tmux set-option -t "$SESSION" pane-border-status top 2>/dev/null || true
+
+  local lead_pane="$SESSION:0.0"
+  local impl_pane="$SESSION:0.1"
+  cat > "$rt/panes.env" <<EOF
+LEAD_PANE=$lead_pane
+IMPL_PANE=$impl_pane
+EOF
+
+  # Start the relay watcher in its own window (visible + easy to kill).
+  tmux new-window -t "$SESSION" -n relay -c "$target" \
+    "ROUNDTABLE_DIR='$rt' LEAD_PANE='$lead_pane' IMPL_PANE='$impl_pane' python3 '$TOOL_ROOT/bin/relay.py'; echo; echo '[relay stopped] press enter to close'; read _"
+
+  # Start the two CLIs in their panes.
+  tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD"; tmux send-keys -t "$lead_pane" Enter
+  tmux send-keys -t "$impl_pane" -l "$CODEX_CMD";  tmux send-keys -t "$impl_pane" Enter
+
+  cat <<EOF
+
+Roundtable session '$SESSION' is up.
+  LEFT  pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+
+One-time kickoff (the only manual paste in the whole flow):
+  1. In the LEFT  pane, once Claude Code is ready, send it:
+        Read .roundtable/prompts/lead.md -- that is your operating contract. Acknowledge, then wait for my idea.
+  2. In the RIGHT pane, once Codex is ready, send it:
+        Read .roundtable/prompts/impl.md -- that is your operating contract. Acknowledge, then wait.
+  3. Then give your raw idea to the LEFT (lead) pane. The relay takes over from there.
+
+Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
+EOF
+  sleep 1
+  tmux select-window -t "$SESSION:0"
+  tmux attach -t "$SESSION"
+}
+
+cmd_stop() {
+  tmux kill-session -t "$SESSION" 2>/dev/null && echo "stopped '$SESSION'" || echo "no session '$SESSION'"
+}
+
+main() {
+  local sub="${1:-}"; shift || true
+  case "$sub" in
+    init)  cmd_init  "$@" ;;
+    start) cmd_start "$@" ;;
+    stop)  cmd_stop  "$@" ;;
+    *) cat >&2 <<EOF
+usage: roundtable <command>
+  init  [dir]   scaffold .roundtable/ (default: current directory)
+  start [dir]   launch tmux session (lead | impl | relay) and attach
+  stop          kill the tmux session
+EOF
+       exit 1 ;;
+  esac
+}
+
+main "$@"
