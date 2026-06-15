@@ -851,3 +851,182 @@ block embodies it structurally, and a clean contract shouldn't reference machine
 Implement, verify the ownership/path criteria and `bin/roundtable selftest`, commit
 `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-3 message, and hand
 back `committed` for my `/code-review` + `/verify`.
+
+
+---
+## 2026-06-16 01:38:16  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 3 is implemented and committed for review.
+
+Commit:
+`75c6352 prompts: define artifact commit ownership (item 3)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `prompts/impl.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- Added the identical `## Artifacts & Commits` section once in each prompt, immediately after `## The communication channel` and before `## Message format`.
+- `rg -n 'Artifacts & Commits|lead owns|sign-off box|lead commits only|whole files|never `.roundtable/channel.md`|implementation/source-adjacent|prompts/\*\.md|README.md|templates|source code|relay-appended `.roundtable/channel.md`|to-\*\.md|panes.env|\.roundtable/prompts|real diff|allow-empty|commit cadence|not load-bearing|on-disk working tree' prompts/lead.md prompts/impl.md`
+  - confirms the ownership/content rule, lead channel-free file split, impl source-adjacent + channel split, exclusions, real-diff/no-allow-empty language, and non-load-bearing channel cadence in both prompts.
+- `python3` block comparison reported:
+  - `prompts/lead.md 1`
+  - `prompts/impl.md 1`
+  - `blocks_identical True`
+- `git diff --numstat prompts/lead.md prompts/impl.md` before commit showed:
+  - `14	0	prompts/lead.md`
+  - `14	0	prompts/impl.md`
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+
+Post-commit `git status --short` shows only intentionally excluded runtime files:
+- `.roundtable/.gitignore`
+- `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 3.
+
+
+---
+## 2026-06-16 01:39:36  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 3: agreed & done.** `/code-review` + `/verify` passed — the `## Artifacts & Commits` block
+is byte-identical in both prompts, all AC clauses present, selftest green, +14/+14. Committed
+`75c6352`. Item 4 is now `doing`.
+
+## ASSIGNMENT — Item 4 (requirements v2)
+**Requirement:** Canonical Phase 2 loop + assignment contract — one ordering, the commit
+instruction stated once per event, plus the required contents of an assignment handoff.
+
+**Acceptance criteria (verbatim):** `lead.md` and `impl.md` describe **one** ordering: assign →
+impl challenges → converge → impl implements **and commits code** → impl hands back **committed (no
+uncommitted impl changes for the item)** → lead reviews (`/code-review` + `/verify`) → on issues,
+**the same point** loops back to impl (fix + commit) → both `agreed` → **lead marks the item `done`
+and commits that doc update** (`requirements.md`, doc-only). The commit instruction is stated **once
+per event** (today `lead.md` redundantly names "impl commits" in both step 3 and step 5 — collapse
+to one). `lead.md` states a Phase 2 assignment handoff **must include**: requirement version + ID,
+acceptance criteria, constraints/non-goals, dependencies, and proposed verification.
+
+**Target locations (current text):**
+- `lead.md` Phase 2 steps 1–5. The redundancy is: step 3 "impl implements … and commits" + step 5
+  "impl commits, you mark the item `done`." Collapse so the code-commit is named once (step 3),
+  and step 5 becomes **lead marks `done` and commits that doc update (`requirements.md`, doc-only)**.
+  Add the **assignment-handoff must-include list** to step 1.
+- `impl.md` Phase 2 steps 1–5 — keep the ordering **parallel** to lead.md; ensure step 3 reflects
+  "hand back committed, no uncommitted changes for the item," and step 4 makes clear **lead** marks
+  the item `done` (impl doesn't).
+
+**Constraints / non-goals:**
+- Item 4 is the loop ordering + assignment contract only. Do NOT touch the `/ce-plan` / `/code-review`
+  / `/verify` **trigger phrasing** beyond what the ordering needs — that's **item 6**. (You may keep
+  the existing `/ce-plan` mention in step 1.)
+- Do NOT restate the commit-ownership rule (item 3 owns it); just reference that lead's `done`
+  commit and impl's code commit follow it.
+- Keep the final-summary bullet ("When all items are `done`, run `/ce-compound` …") intact.
+- Honor §4 hard constraints; mind cumulative leanness (lead.md at +23 net — item 4 should be roughly
+  net-neutral since you're collapsing a redundancy while adding the must-include list).
+
+**Dependencies:** items 1 (done), 3 (done).
+
+**Proposed verification (what I'll run at review):** confirm `lead.md` names the code-commit once
+(no double "impl commits"); confirm step 5 = lead marks `done` + commits doc update; confirm the
+assignment must-include list (version+ID, AC, constraints/non-goals, deps, verification) is present;
+confirm both prompts' orderings are parallel and consistent (impl hands back committed; lead marks
+done); net-line/leanness check; `roundtable selftest`.
+
+**Your move:** challenge first (ordering, parallel wording, any overlap with item 6), then implement,
+commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-4 message, and
+hand back `committed`.
+
+
+---
+## 2026-06-16 01:40:38  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 4 is implementable. I have one wording challenge before editing:
+
+## Challenge
+The AC says "commits code," but this workflow also treats source prompt/README/template edits as impl-owned implementation work. To avoid contradicting item 3, I would use **implementation/source changes** or **item work** in the loop wording rather than only "code." That preserves the intended boundary: impl commits the implementation-side change before review; lead commits only the `requirements.md` status update after agreement.
+
+I will not touch the conditional skill trigger list; the `/ce-plan`, `/code-review`, and `/verify` references below stay as existing loop mechanics, with item 6 left to sharpen trigger boundaries.
+
+## Proposed replacement
+Replace only the Phase 2 numbered steps in `lead.md` with:
+
+```md
+For each item in `requirements.md` (top to bottom, respecting dependencies):
+1. Assign the task to impl — run **`/ce-plan`** to break the item into concrete steps, then send a
+   handoff that includes: requirement version + ID, acceptance criteria, constraints/non-goals,
+   dependencies, and proposed verification.
+2. impl challenges the task; you converge on the approach.
+3. impl implements **in the current branch**, commits the implementation/source changes, and hands
+   back with no uncommitted impl changes for that item.
+4. **Review impl's changes** with **`/code-review`** on the diff, then **`/verify`** the behavior
+   against the acceptance criteria (run it, don't just read it). If issues remain, send them back
+   to impl; the same unresolved point loops until impl fixes and commits it.
+5. When **both** set `STATUS: agreed`, mark the item `done` in `requirements.md` and commit that
+   doc update. **No arbiter gate on merge.**
+```
+
+Keep the existing final-summary bullet unchanged.
+
+Replace only the Phase 2 numbered steps in `impl.md` with:
+
+```md
+For each item lead assigns:
+1. **Challenge the task** (approach, risks, acceptance criteria) before coding.
+2. Once you and lead agree on the approach, **implement it in the current branch**.
+3. **Commit** the implementation/source changes with a clear message, then hand back to lead for
+   review with no uncommitted changes for that item.
+4. Address lead's review feedback on the same unresolved point; fix and commit before handing
+   back. When **both** set `STATUS: agreed`, lead marks the item `done` and commits that doc update.
+5. Move to the next item lead assigns. **No arbiter gate on merge** — agreement is enough.
+```
+
+Why this satisfies item 4:
+- Lead step 1 contains the required assignment handoff fields.
+- Impl's implementation/source commit is named once before review.
+- Review issues loop back as fix + commit on the same point.
+- After both agree, lead marks `done` and commits the doc update.
+- Phase 2 ordering is parallel without re-stating the item 3 ownership block.
+
+If you agree, I will apply exactly this scoped edit, verify the loop/order/search criteria plus `bin/roundtable selftest`, then commit `prompts/lead.md`, `prompts/impl.md`, and `.roundtable/channel.md` with an item-4 message.
+
+
+---
+## 2026-06-16 01:41:11  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — apply both replacements exactly as proposed. The "implementation/source changes" wording
+(vs. bare "code") is the right call: it matches item 3's "implementation/source-adjacent work" and
+prevents a code-vs-source contradiction, while still satisfying item 4's intent (impl commits its
+implementation work before review; lead commits only the `requirements.md` status update after
+agreement). No AC issue — it's a faithful realization.
+
+AC coverage confirmed:
+- lead step 1 carries the full assignment handoff list (version+ID, AC, constraints/non-goals,
+  deps, verification) ✓
+- the implementation/source commit is named once, in step 3; the redundant step-5 "impl commits"
+  is gone ✓
+- step 4 loops the **same unresolved point** until impl fixes + commits (nicely sets up item 5) ✓
+- step 5 = both `agreed` → lead marks `done` + commits the doc update ✓
+- both prompts' orderings are parallel; no restatement of the item-3 ownership block ✓
+
+Final-summary bullet stays unchanged, good. Implement, verify the loop/order plus
+`bin/roundtable selftest`, commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`)
+with an item-4 message, and hand back `committed` for my `/code-review` + `/verify`.

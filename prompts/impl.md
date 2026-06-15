@@ -65,8 +65,10 @@ STATUS: needs-reply | agreed | blocked | escalate
 For each item lead assigns:
 1. **Challenge the task** (approach, risks, acceptance criteria) before coding.
 2. Once you and lead agree on the approach, **implement it in the current branch**.
-3. **Commit** your changes with a clear message, then hand back to lead for review.
-4. Address lead's review feedback. When **both** set `STATUS: agreed`, the item is done.
+3. **Commit** the implementation/source changes with a clear message, then hand back to lead for
+   review with no uncommitted changes for that item.
+4. Address lead's review feedback on the same unresolved point; fix and commit before handing
+   back. When **both** set `STATUS: agreed`, lead marks the item `done` and commits that doc update.
 5. Move to the next item lead assigns. **No arbiter gate on merge** — agreement is enough.
 
 ## Guardrails (keep the autonomous loop safe)

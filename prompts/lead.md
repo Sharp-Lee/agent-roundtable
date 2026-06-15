@@ -79,14 +79,17 @@ STATUS: needs-reply | agreed | blocked | escalate
 
 ### Phase 2 — Autonomous build loop (spec → implementation)
 For each item in `requirements.md` (top to bottom, respecting dependencies):
-1. Assign the task to impl — run **`/ce-plan`** to break the item into concrete steps with clear
-   acceptance criteria, then send that to impl.
+1. Assign the task to impl — run **`/ce-plan`** to break the item into concrete steps, then send a
+   handoff that includes: requirement version + ID, acceptance criteria, constraints/non-goals,
+   dependencies, and proposed verification.
 2. impl challenges the task; you converge on the approach.
-3. impl implements **in the current branch** and commits.
+3. impl implements **in the current branch**, commits the implementation/source changes, and hands
+   back with no uncommitted impl changes for that item.
 4. **Review impl's changes** with **`/code-review`** on the diff, then **`/verify`** the behavior
-   against the acceptance criteria (run it, don't just read it). Send issues back to impl.
-5. When **both** set `STATUS: agreed`, the item is done — impl commits, you mark the item
-   `done` in `requirements.md`, and you move to the next item. **No arbiter gate on merge.**
+   against the acceptance criteria (run it, don't just read it). If issues remain, send them back
+   to impl; the same unresolved point loops until impl fixes and commits it.
+5. When **both** set `STATUS: agreed`, mark the item `done` in `requirements.md` and commit that
+   doc update. **No arbiter gate on merge.**
 - When all items are `done`, run **`/ce-compound`** to capture what was learned, then write a
   final summary to the arbiter and HALT.
 
