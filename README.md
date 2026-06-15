@@ -36,8 +36,9 @@ Phase 2  Build loop      per requirement: assign -> challenge -> impl implements
                          all items done -> halt and report
 ```
 
-The full per-role rules are in `prompts/lead.md` and `prompts/impl.md`. They are copied into each
-project so the agents read them as their operating contract.
+The shared rules (channel, message format, commit ownership, guardrails) live in
+`prompts/protocol.md`; the role-specific duties are in `prompts/lead.md` and `prompts/impl.md`.
+All three are copied into each project so the agents read them as their operating contract.
 
 ## Requirements
 
@@ -57,9 +58,9 @@ roundtable start           # opens tmux: left=lead | right=impl | window 'relay'
 On first start, do the **one-time kickoff** (the only manual paste in the whole flow):
 
 1. Left pane (Claude Code is up): send
-   `Read .roundtable/prompts/lead.md — that is your operating contract. Acknowledge, then wait for my idea.`
+   `Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md — that is your operating contract. Acknowledge, then wait for my idea.`
 2. Right pane (Codex is up): send
-   `Read .roundtable/prompts/impl.md — that is your operating contract. Acknowledge, then wait.`
+   `Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md — that is your operating contract. Acknowledge, then wait.`
 3. Give your raw idea to the **left (lead)** pane. The relay takes over.
 
 Approve requirements at Gate A by typing into the lead pane:

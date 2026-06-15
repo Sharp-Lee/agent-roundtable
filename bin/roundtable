@@ -39,6 +39,7 @@ cmd_init() {
   # Mailboxes (transient) + role contracts (always refreshed from the tool).
   : > "$rt/to-lead.md"
   : > "$rt/to-impl.md"
+  cp "$TOOL_ROOT/prompts/protocol.md" "$rt/prompts/protocol.md"
   cp "$TOOL_ROOT/prompts/lead.md" "$rt/prompts/lead.md"
   cp "$TOOL_ROOT/prompts/impl.md" "$rt/prompts/impl.md"
 
@@ -95,9 +96,9 @@ Roundtable session '$SESSION' is up.
 
 One-time kickoff (the only manual paste in the whole flow):
   1. In the LEFT  pane, once Claude Code is ready, send it:
-        Read .roundtable/prompts/lead.md -- that is your operating contract. Acknowledge, then wait for my idea.
+        Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md -- that is your operating contract. Acknowledge, then wait for my idea.
   2. In the RIGHT pane, once Codex is ready, send it:
-        Read .roundtable/prompts/impl.md -- that is your operating contract. Acknowledge, then wait.
+        Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md -- that is your operating contract. Acknowledge, then wait.
   3. Then give your raw idea to the LEFT (lead) pane. The relay takes over from there.
 
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
