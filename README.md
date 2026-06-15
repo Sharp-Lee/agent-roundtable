@@ -76,7 +76,10 @@ On first start, do the **one-time kickoff** (the only manual paste in the whole 
 Approve requirements at Gate A by typing into the lead pane:
 `ARBITER: approved requirements v1`
 
-Stop everything: `roundtable stop`.
+Stop this project's session: `roundtable stop` (run from the project dir).
+
+Each project gets its own tmux session (`roundtable-<name>-<hash>`), so you can run several
+roundtables at once. `roundtable list` shows the running ones.
 
 ## What lives where
 
@@ -94,7 +97,7 @@ Stop everything: `roundtable stop`.
 |---|---|---|
 | `CLAUDE_CMD` | `claude` | command to start the lead CLI |
 | `CODEX_CMD` | `codex` | command to start the impl CLI |
-| `SESSION` | `roundtable` | tmux session name |
+| `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
 | `POLL_SECONDS` | `1.0` | relay poll interval |
 
 ## Limitations (known, by design)

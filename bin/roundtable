@@ -19,11 +19,22 @@
 set -euo pipefail
 
 TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SESSION="${SESSION:-roundtable}"
+# SESSION empty => derived per-project (one roundtable per project, runnable concurrently).
+# Set SESSION in the environment to override.
+SESSION="${SESSION:-}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 
 die() { echo "roundtable: $*" >&2; exit 1; }
+
+# Stable, unique-per-absolute-path, readable tmux session name for a project dir.
+_session_for() {
+  local dir="$1" base slug hash
+  base="$(basename "$dir")"
+  slug="$(printf '%s' "$base" | tr -c 'A-Za-z0-9_-' '-' | sed 's/-\{2,\}/-/g; s/^-//; s/-$//')"
+  hash="$(printf '%s' "$dir" | cksum | awk '{printf "%x", $1}' | cut -c1-6)"
+  printf 'roundtable-%s-%s' "${slug:-proj}" "$hash"
+}
 
 cmd_init() {
   local target="${1:-$PWD}"
@@ -63,8 +74,9 @@ cmd_start() {
   [ -d "$rt" ] || die "no .roundtable in $target -- run 'roundtable init' first"
   command -v tmux >/dev/null 2>&1 || die "tmux is required"
 
+  local SESSION="${SESSION:-$(_session_for "$target")}"
   if tmux has-session -t "$SESSION" 2>/dev/null; then
-    die "session '$SESSION' already exists -- attach with 'tmux attach -t $SESSION' or 'roundtable stop' first"
+    die "session '$SESSION' (this project) already exists -- attach with 'tmux attach -t $SESSION' or 'roundtable stop' first"
   fi
 
   # Two side-by-side panes: left = lead (Claude Code), right = impl (Codex).
@@ -77,6 +89,7 @@ cmd_start() {
   local lead_pane="$SESSION:0.0"
   local impl_pane="$SESSION:0.1"
   cat > "$rt/panes.env" <<EOF
+SESSION=$SESSION
 LEAD_PANE=$lead_pane
 IMPL_PANE=$impl_pane
 EOF
@@ -109,7 +122,21 @@ EOF
 }
 
 cmd_stop() {
-  tmux kill-session -t "$SESSION" 2>/dev/null && echo "stopped '$SESSION'" || echo "no session '$SESSION'"
+  local target="${1:-$PWD}"
+  target="$(cd "$target" 2>/dev/null && pwd)" || target="$PWD"
+  # Prefer the exact session this project recorded at start; else derive it.
+  local sess="$SESSION" envfile="$target/.roundtable/panes.env"
+  if [ -z "$sess" ] && [ -f "$envfile" ]; then
+    sess="$(sed -n 's/^SESSION=//p' "$envfile")"
+  fi
+  [ -n "$sess" ] || sess="$(_session_for "$target")"
+  tmux kill-session -t "$sess" 2>/dev/null && echo "stopped '$sess'" || echo "no session '$sess'"
+}
+
+cmd_list() {
+  local rows
+  rows="$(tmux ls 2>/dev/null | grep -E '^roundtable-' || true)"
+  if [ -n "$rows" ]; then echo "$rows"; else echo "no roundtable sessions running"; fi
 }
 
 # Verify the relay mechanism end-to-end with throwaway tmux + dummy panes
@@ -172,13 +199,18 @@ main() {
     init)     cmd_init     "$@" ;;
     start)    cmd_start    "$@" ;;
     stop)     cmd_stop     "$@" ;;
+    list)     cmd_list     "$@" ;;
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
   init  [dir]   scaffold .roundtable/ (default: current directory)
-  start [dir]   launch tmux session (lead | impl | relay) and attach
-  stop          kill the tmux session
+  start [dir]   launch a per-project tmux session (lead | impl | relay) and attach
+  stop  [dir]   kill this project's session (default: current directory)
+  list          list running roundtable sessions
   selftest      verify the relay works on this machine (no real CLIs needed)
+
+Each project gets its own session (roundtable-<name>-<hash>), so multiple
+roundtables run concurrently. Override the name with SESSION=... if needed.
 EOF
        exit 1 ;;
   esac
