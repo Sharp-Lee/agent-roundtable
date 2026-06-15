@@ -682,3 +682,172 @@ is where we'll judge justified-growth vs. bloat and tighten. Just don't pad.
 Implement, verify no `AGREED`→`channel.md` instruction remains, run `bin/roundtable selftest`,
 commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-2 message, and
 hand back `committed` for my `/code-review` + `/verify`.
+
+
+---
+## 2026-06-16 01:33:04  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 2 is implemented and committed for review.
+
+Commit:
+`e6fe87e prompts: put requirements signoff on artifacts (item 2)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `prompts/impl.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- `rg -n "AGREED|append .*channel\\.md|channel\\.md|sign-off|Version|Gate A|doc-only|re-engages|re-engage" prompts/lead.md prompts/impl.md`
+  - no `AGREED` or append-to-`channel.md` instruction remains
+  - both prompts show `channel.md` as `relay-owned; never hand-edited`
+  - both prompts include the sign-off-box mechanic
+  - `lead.md` includes Version ownership, doc-only commit of agreed docs, change-request reset, Gate A tick+commit, and first Phase 2 assignment re-engagement
+- `git diff --numstat prompts/lead.md prompts/impl.md` before commit showed:
+  - `15	9	prompts/lead.md`
+  - `6	4	prompts/impl.md`
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+
+Post-commit `git status --short` shows only intentionally excluded runtime files:
+- `.roundtable/.gitignore`
+- `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 2.
+
+
+---
+## 2026-06-16 01:34:45  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 2: agreed & done.** `/code-review` + `/verify` passed — no `AGREED`→`channel.md` remains,
+`channel.md` relay-owned line is identical in both prompts, sign-off/version/Gate-A mechanics all
+present and parallel, selftest passes, +6/+2 net. Committed `d949e68`. Item 3 is now `doing`.
+
+## ASSIGNMENT — Item 3 (requirements v2)
+**Requirement:** Define artifact-content & commit ownership (relaxed: lead commits its docs, impl
+commits everything else). This is the load-bearing commit-ownership rule from the v2 relaxation.
+
+**Acceptance criteria (verbatim):** Both prompts state: **lead owns the content of `requirements.md`
+and `decisions.md` across all phases**; the only edit impl makes to `requirements.md` is ticking its
+own sign-off box; if impl finds `decisions.md` inaccurate it **flags via the mailbox and lead
+corrects it** (impl never edits content). **Commit model (split by file path, not "doc vs code"):**
+**lead commits only `requirements.md` and `decisions.md`** (its own artifact edits, when it makes
+them) — never `channel.md` (**channel-free**) and never any other file. **impl is the sole
+implementer and commits everything else in the work tree** — source code, `prompts/*.md`,
+`README.md`, `templates/`, etc. — **plus** the relay-appended `channel.md` (transcript history),
+restaged on each commit so it sweeps the transcript to date. Neither party commits the mailboxes
+(`to-*.md`), `panes.env`, or the `.roundtable/prompts/` working copies; commits capture a **real
+diff** (never `--allow-empty`). **`channel.md`'s commit cadence is not load-bearing** — recovery
+always reads the on-disk working tree, where the transcript is complete regardless of when it was
+last committed. The rule appears **once, crisply, in both prompts**. *(No checkpoint-commit handoffs
+or artifact-only checkpoint commits — lead persists its own doc edits directly.)*
+
+**Placement (your call, but):** state it ONCE in each prompt as a tight, clearly-labelled block
+(e.g. a short "## Artifacts & commits" subsection, or fold into "## Your role"/channel area) —
+wherever it reads cleanly and stays parallel across both prompts. Keep it crisp; this rule is
+prose-dense, so favor a compact list over paragraphs.
+
+**Constraints / non-goals:**
+- Do NOT re-state item 2's Phase-1 sign-off/version mechanics — item 3 is the *general* ownership
+  + file-split rule; ensure it's consistent with (not contradicting) item 2's "lead commits the
+  agreed docs (doc-only)" wording. If item 2's phrasing now reads as a redundant instance, you may
+  leave it (it's the Phase-1 instance) — just no contradiction.
+- Do NOT touch the Phase 2 loop ordering / assignment contract — that's **item 4** (next).
+- The rule must make clear lead commits the **whole** `requirements.md`/`decisions.md` files (incl.
+  impl's sign-off tick living inside `requirements.md`) — you flagged this earlier.
+- `impl.md` stays **tool-agnostic** (no Codex-specific commands).
+- Honor §4 hard constraints; mind cumulative leanness (lead.md is at +9 net so far).
+
+**Dependencies:** item 1 (done).
+
+**Proposed verification (what I'll run at review):** confirm both prompts state lead-owns-content +
+the file-path commit split (lead: requirements.md/decisions.md only, channel-free; impl: everything
+else + channel.md) + the exclusions (mailboxes/panes.env/prompts copies) + real-diff/no-allow-empty
++ the cadence-not-load-bearing note + the decisions.md-disconfirmation-via-mailbox path; confirm the
+rule appears once and parallel; confirm no contradiction with item 2; net-line/leanness check;
+`roundtable selftest`.
+
+**Your move:** challenge first (placement, any contradiction risk with item 2, wording), then
+implement, commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-3
+message, and hand back `committed`.
+
+
+---
+## 2026-06-16 01:35:47  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 3 is implementable. I want agreement on the exact block before editing because this is the load-bearing ownership rule and should appear once, parallel, in both prompts.
+
+## Challenge
+1. **Placement:** put a new `## Artifacts & Commits` section immediately after `## The communication channel` and before `## Message format` in both prompts. That keeps ownership close to the mailbox/transcript rules and avoids touching Phase 2 ordering, which belongs to item 4.
+2. **Path clarity:** use explicit `.roundtable/...` paths for roundtable artifacts, and call `prompts/*.md` source prompts so it cannot be confused with excluded `.roundtable/prompts/` runtime copies.
+3. **Item 2 consistency:** lead's Phase 1 "commit those doc-only artifacts" remains the Phase-1 instance. This new section generalizes the ownership rule without restating sign-off/version/Gate A mechanics.
+
+## Proposed block
+Add this identical section to both prompts:
+
+```md
+## Artifacts & Commits
+- lead owns the content of `.roundtable/requirements.md` and `.roundtable/decisions.md` across
+  all phases. impl edits `.roundtable/requirements.md` only to tick its own sign-off box; if
+  `.roundtable/decisions.md` looks wrong, impl flags it by mailbox and lead corrects it.
+- lead commits only `.roundtable/requirements.md` and `.roundtable/decisions.md` (whole files,
+  including impl's sign-off tick), never `.roundtable/channel.md` or any other path.
+- impl commits implementation/source-adjacent work (`prompts/*.md`, `README.md`, `templates/`,
+  source code, etc.) plus the relay-appended `.roundtable/channel.md` on each commit to sweep
+  transcript history. Neither party commits `.roundtable/to-*.md`, `.roundtable/panes.env`, or
+  `.roundtable/prompts/`.
+- Commits must capture a real diff; never use `--allow-empty`. `.roundtable/channel.md` commit
+  cadence is not load-bearing: recovery reads the on-disk working tree transcript, even if the
+  last committed transcript lags.
+```
+
+Why this shape:
+- It satisfies the file-path split without "doc vs code" ambiguity.
+- It says lead commits whole files, including my sign-off tick.
+- It includes the decisions.md-disconfirmation route.
+- It keeps `impl.md` tool-agnostic.
+- It avoids checkpoint-commit handoffs by assigning lead-owned artifacts directly to lead and channel sweeping to impl commits.
+
+If you agree, I will add exactly this section to both prompts, verify the ownership/search criteria and `bin/roundtable selftest`, then commit `prompts/lead.md`, `prompts/impl.md`, and `.roundtable/channel.md` with an item-3 message.
+
+
+---
+## 2026-06-16 01:36:27  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — add the `## Artifacts & Commits` block exactly as proposed, identical in both prompts.
+It satisfies every AC clause:
+- lead owns content of `requirements.md`/`decisions.md` all phases; impl only ticks its sign-off;
+  decisions.md-disconfirmation routes via mailbox ✓
+- file-path split: lead commits only `requirements.md`+`decisions.md` (whole files, incl. your
+  sign-off tick), channel-free; impl commits everything else + sweeps `channel.md` ✓
+- exclusions (`to-*.md`, `panes.env`, `.roundtable/prompts/`) ✓
+- real diff / never `--allow-empty`; cadence not load-bearing (recovery reads on-disk tree) ✓
+- once, parallel, in both prompts ✓
+
+Good calls on all three: the placement (after `## The communication channel`, before
+`## Message format`) keeps it near the transcript rules and parallel; the explicit
+`.roundtable/...` paths vs `prompts/*.md` source prompts kill the runtime-copy ambiguity; and
+leaving item 2's Phase-1 "commit those doc-only artifacts" as the Phase-1 instance is right — no
+contradiction. Omitting an explicit "no checkpoint-commit handoffs" sentence is also correct: the
+block embodies it structurally, and a clean contract shouldn't reference machinery it never had.
+
+Implement, verify the ownership/path criteria and `bin/roundtable selftest`, commit
+`prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-3 message, and hand
+back `committed` for my `/code-review` + `/verify`.

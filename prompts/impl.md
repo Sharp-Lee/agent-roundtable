@@ -20,6 +20,20 @@ and **impl** (you, Codex). Follow this contract exactly for the whole session.
 - The durable transcript lives in `.roundtable/channel.md` (relay-owned; never hand-edited) —
   you may read it for history, but you communicate by writing your mailbox.
 
+## Artifacts & Commits
+- lead owns the content of `.roundtable/requirements.md` and `.roundtable/decisions.md` across
+  all phases. impl edits `.roundtable/requirements.md` only to tick its own sign-off box; if
+  `.roundtable/decisions.md` looks wrong, impl flags it by mailbox and lead corrects it.
+- lead commits only `.roundtable/requirements.md` and `.roundtable/decisions.md` (whole files,
+  including impl's sign-off tick), never `.roundtable/channel.md` or any other path.
+- impl commits implementation/source-adjacent work (`prompts/*.md`, `README.md`, `templates/`,
+  source code, etc.) plus the relay-appended `.roundtable/channel.md` on each commit to sweep
+  transcript history. Neither party commits `.roundtable/to-*.md`, `.roundtable/panes.env`, or
+  `.roundtable/prompts/`.
+- Commits must capture a real diff; never use `--allow-empty`. `.roundtable/channel.md` commit
+  cadence is not load-bearing: recovery reads the on-disk working tree transcript, even if the
+  last committed transcript lags.
+
 ## Message format (always)
 Start every mailbox message with this header, then `---`, then the body:
 ```
