@@ -1030,3 +1030,193 @@ AC coverage confirmed:
 Final-summary bullet stays unchanged, good. Implement, verify the loop/order plus
 `bin/roundtable selftest`, commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`)
 with an item-4 message, and hand back `committed` for my `/code-review` + `/verify`.
+
+
+---
+## 2026-06-16 01:42:37  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 4 is implemented and committed for review.
+
+Commit:
+`092ea7c prompts: canonicalize phase 2 loop (item 4)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `prompts/impl.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- `sed -n '80,94p' prompts/lead.md` and `sed -n '64,76p' prompts/impl.md` show the approved Phase 2 loop replacements.
+- Fixed-string `rg` checks confirmed:
+  - lead assignment handoff includes `requirement version + ID`, `acceptance criteria`, `constraints/non-goals`, `dependencies`, and `proposed verification`
+  - both prompts include `implementation/source changes`
+  - both prompts require no uncommitted impl changes for the item before review
+  - review issues loop on the same unresolved point until fix + commit
+  - lead marks the item `done` and commits the doc update after both agree
+  - old redundant strings `impl commits, you mark` and `implements **in the current branch** and commits` are absent
+- `git diff --numstat prompts/lead.md prompts/impl.md` before commit showed:
+  - `9	6	prompts/lead.md`
+  - `4	2	prompts/impl.md`
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+
+Post-commit `git status --short` shows only intentionally excluded runtime files:
+- `.roundtable/.gitignore`
+- `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 4.
+
+
+---
+## 2026-06-16 01:43:59  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 4: agreed & done.** `/code-review` + `/verify` passed — both Phase 2 loops parallel,
+assignment must-include list present, single commit instruction (the only "impl commits" left is the
+item-3 ownership block), same-point review loop, lead marks `done`+commits. Committed `092ea7c`,
++3/+2 net. Item 5 is now `doing`.
+
+## ASSIGNMENT — Item 5 (requirements v2)
+**Requirement:** Define the protocol terms referenced but never defined, kept parallel in both
+prompts, and fix the restart-recovery text.
+
+**Acceptance criteria (verbatim):** Both prompts define the four STATUS values (`needs-reply`,
+`agreed`, `blocked`, `escalate`); define **one round** = one lead↔impl back-and-forth on the **same
+unresolved point**, and clarify the >3-round cap fires on **unresolved disagreement or repeated
+rejection of the same proposed fix/rationale** — a stubborn bug escalates only when it becomes a
+real blocker, not merely because debugging took several rounds; state that **agents address the
+arbiter only via pane output, never via the mailbox**; give an inbox-recovery rule (on a nudge, read
+the inbox and infer phase from its header + `requirements.md`; if the message is
+empty/malformed/stale/wrong-`FROM`, reply `STATUS: blocked` asking for a resend rather than
+guessing); and **update the existing "re-read requirements.md, channel.md, decisions.md" sentence**
+so it names `requirements.md` as the authority for sign-off/version/Gate-A and frames `channel.md` as
+history. All four definitions appear in **both** prompts.
+
+**Target locations (current text shown for reference; you draft wording/placement):**
+- **STATUS gloss** → just after the `## Message format` code block, a compact one-line-each gloss of
+  the four values. Both prompts.
+- **"one round" + cap clarification** → the Guardrails "Disagreement cap" bullet (both prompts).
+- **arbiter-via-pane-only** → wherever it reads cleanly near the channel/communication rules (one
+  sentence). Both prompts.
+- **inbox-recovery rule** → near the channel section / handoff-receipt (1–2 sentences). Both prompts.
+- **restart-recovery update** → the Guardrails bullet that currently says "re-read
+  `requirements.md`, `channel.md`, and `decisions.md` to recover state." Reframe per AC.
+
+**Constraints / non-goals:**
+- These five additions are **shared protocol content** — make them **parallel/identical** across
+  both prompts (helps item 7). Role-specific guardrail bullets (lead's "keep statuses current" vs
+  impl's "scope commits to one item") stay as-is.
+- Do NOT touch the conditional-skill triggers (**item 6**) or do a broader symmetry sweep (**item 7**).
+- Honor §4 hard constraints; keep each gloss/def tight (lead.md is at +26 net — favor compact
+  lines, no padding).
+
+**Dependencies:** none.
+
+**Proposed verification (what I'll run at review):** confirm both prompts gloss all four STATUS
+values; define "one round" = same unresolved point; clarify the cap (disagreement/repeated-rejection,
+not ordinary debugging); state arbiter-via-pane-only; give the inbox-recovery rule
+(empty/malformed/stale/wrong-FROM → `blocked` + resend); and that the restart-recovery sentence now
+names `requirements.md` as authority + `channel.md` as history — **in both prompts, parallel**;
+net-line/leanness check; `roundtable selftest`.
+
+**Your move:** challenge first (placement, parallel wording, leanness), then implement, commit
+`prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-5 message, and hand back
+`committed`.
+
+
+---
+## 2026-06-16 01:44:58  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 5 is implementable. I want agreement on exact shared wording because this is protocol text and should be parallel without turning into the broader item-7 symmetry pass.
+
+## Challenge
+1. **Keep shared text role-neutral.** Use "lead and impl" / "your inbox" so the same wording works in both prompts without role-specific rewrites.
+2. **Do not over-expand STATUS.** The four values need enough semantics to prevent ambiguity, but not a policy essay.
+3. **Recovery should name authority explicitly.** `requirements.md` is the state authority; `channel.md` is history. That avoids the current "files are the memory" wording implying the transcript is authoritative state.
+
+## Proposed scoped edit
+Add these two bullets to both communication-channel sections, after the `channel.md` transcript bullet:
+
+```md
+- Agents address the arbiter only via their own pane output, never via the mailbox.
+- On a relay nudge, read your inbox and infer phase from its header plus `.roundtable/requirements.md`;
+  if the message is empty, malformed, stale, or has the wrong `FROM`, reply with `STATUS: blocked`
+  asking for a resend rather than guessing.
+```
+
+Add this compact gloss immediately after the message-format code block in both prompts:
+
+```md
+Status values:
+- `needs-reply`: normal handoff; the recipient should act or reply.
+- `agreed`: sender has no open objection on the current artifact/task.
+- `blocked`: sender cannot proceed until an external/tooling/arbiter condition changes.
+- `escalate`: disagreement cap or arbiter-level scope call; halt for the arbiter.
+```
+
+Replace each prompt's current disagreement-cap bullet with this shared bullet:
+
+```md
+- **Disagreement cap:** one round = one lead/impl back-and-forth on the same unresolved point.
+  If more than 3 rounds pass on an unresolved disagreement or repeated rejection of the same
+  proposed fix/rationale, both set `STATUS: escalate` and **HALT for the arbiter**; ordinary
+  debugging escalates only when it becomes a real blocker.
+```
+
+Replace each prompt's restart-recovery bullet with this shared bullet:
+
+```md
+- If your pane was restarted and you lack context, re-read `.roundtable/requirements.md`,
+  `.roundtable/decisions.md`, and `.roundtable/channel.md`. Treat `requirements.md` as the
+  authority for phase, version, sign-off/Gate A, and item status; use `decisions.md` for settled
+  rationale and `channel.md` as history.
+```
+
+Why this satisfies item 5:
+- All four STATUS values are defined.
+- The round/cap wording explicitly excludes ordinary debugging unless it becomes a blocker.
+- Arbiter-via-pane-only and malformed inbox recovery are near the channel rules.
+- Restart recovery names `requirements.md` as authority and `channel.md` as history.
+- The additions are identical in both prompts, while leaving role-specific guardrail bullets and item-6 skill triggers alone.
+
+If you agree, I will apply exactly this scoped edit, verify the protocol terms and `bin/roundtable selftest`, then commit `prompts/lead.md`, `prompts/impl.md`, and `.roundtable/channel.md` with an item-5 message.
+
+
+---
+## 2026-06-16 01:45:42  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — apply all four edits exactly as proposed, identical in both prompts. AC fully covered:
+- four STATUS values glossed (needs-reply / agreed / blocked / escalate) ✓
+- one round = same unresolved point; >3-round cap on unresolved disagreement or repeated rejection
+  of the same fix/rationale; ordinary debugging escalates only when a real blocker ✓
+- arbiter-via-pane-only + inbox-recovery (empty/malformed/stale/wrong-`FROM` → `blocked` + resend) ✓
+- restart-recovery names `requirements.md` as authority, `channel.md` as history (good call adding
+  `decisions.md` for settled rationale) ✓
+
+The three challenges are all right: role-neutral shared wording ("lead/impl", "your inbox",
+"Agents") keeps it parallel without role rewrites; the STATUS gloss is semantic-not-essay; and
+naming the authority explicitly fixes the old "files are the memory" ambiguity. Leaving role-specific
+guardrail bullets and item-6 triggers alone is correct.
+
+On leanness: this is dense but justified protocol text (the prompts were under-specified). Don't
+compress it now; item 7 is where I'll judge any cross-item redundancy and tighten. Just no padding.
+
+Implement, verify the protocol terms plus `bin/roundtable selftest`, commit `prompts/lead.md` +
+`prompts/impl.md` (+ restage `channel.md`) with an item-5 message, and hand back `committed` for my
+`/code-review` + `/verify`.

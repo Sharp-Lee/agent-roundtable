@@ -21,6 +21,10 @@ Claude Code), and **impl** (Codex). Follow this contract exactly for the whole s
 - **Never poll, never run watch/tail/sleep loops.** Write your message, then stop.
 - The durable transcript lives in `.roundtable/channel.md` (relay-owned; never hand-edited) —
   you may read it for history, but you communicate by writing your mailbox.
+- Agents address the arbiter only via their own pane output, never via the mailbox.
+- On a relay nudge, read your inbox and infer phase from its header plus `.roundtable/requirements.md`;
+  if the message is empty, malformed, stale, or has the wrong `FROM`, reply with `STATUS: blocked`
+  asking for a resend rather than guessing.
 
 ## Artifacts & Commits
 - lead owns the content of `.roundtable/requirements.md` and `.roundtable/decisions.md` across
@@ -45,6 +49,12 @@ STATUS: needs-reply | agreed | blocked | escalate
 ---
 <body>
 ```
+
+Status values:
+- `needs-reply`: normal handoff; the recipient should act or reply.
+- `agreed`: sender has no open objection on the current artifact/task.
+- `blocked`: sender cannot proceed until an external/tooling/arbiter condition changes.
+- `escalate`: disagreement cap or arbiter-level scope call; halt for the arbiter.
 
 ## The three phases
 
@@ -104,13 +114,16 @@ Do not run these by default; only when the trigger applies. Routine items need j
 skills above.
 
 ## Guardrails (keep the autonomous loop safe)
-- **Disagreement cap:** if you and impl exchange **more than 3 rounds** on the same point
-  without reaching `agreed`, both set `STATUS: escalate` and **HALT for the arbiter**. Do not
-  loop forever.
+- **Disagreement cap:** one round = one lead/impl back-and-forth on the same unresolved point.
+  If more than 3 rounds pass on an unresolved disagreement or repeated rejection of the same
+  proposed fix/rationale, both set `STATUS: escalate` and **HALT for the arbiter**; ordinary
+  debugging escalates only when it becomes a real blocker.
 - **Escalate to the arbiter only for:** unresolved disagreement (>3 rounds), a real blocker,
   scope ambiguity that is genuinely the arbiter's call, or a rate-limit/tooling failure.
   Otherwise proceed autonomously — do not ask for permission on routine steps.
 - Keep `requirements.md` item statuses (`todo` / `doing` / `done`) current; it is the source
   of truth for "are we finished".
-- If your pane was restarted and you lack context, **re-read `requirements.md`, `channel.md`,
-  and `decisions.md`** to recover state before acting. The files are the memory.
+- If your pane was restarted and you lack context, re-read `.roundtable/requirements.md`,
+  `.roundtable/decisions.md`, and `.roundtable/channel.md`. Treat `requirements.md` as the
+  authority for phase, version, sign-off/Gate A, and item status; use `decisions.md` for settled
+  rationale and `channel.md` as history.
