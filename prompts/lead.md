@@ -70,10 +70,8 @@ Status values:
 
 ### Phase 1 — Requirements convergence (shape → agreed spec)
 - Draft `.roundtable/requirements.md` (use its template structure). **Before the first Phase 1
-  handoff to impl, run `/ce-doc-review` on it** and fold the findings in — this hardens the doc
-  with internal multi-perspective review first, so impl's cross-vendor pass goes deeper instead of
-  repeating the obvious. Run it again before a later Phase 1 handoff only after changes to scope, a
-  requirement's acceptance criteria, constraints, or the work-list set; skip it for wording/
+  handoff to impl, run `/ce-doc-review` on it** and fold the findings in. Rerun only after changes
+  to scope, a requirement's acceptance criteria, constraints, or the work-list set; skip wording/
   formatting-only edits. Then hand it to impl for an **adversarial review**. Revise against its
   objections; iterate.
 - In Phase 1, you own the Version field in `requirements.md` (start at v1; bump it whenever the
@@ -116,17 +114,18 @@ For each item in `requirements.md` (top to bottom, respecting dependencies):
 - After an item works → use `/simplify` as a review/suggestion pass; impl performs any code changes.
 - The idea depends on **external facts you don't have** (Phase 0/1) → `/deep-research`.
 Do not run these by default; only when the trigger applies. Routine items need just the core
-skills above. Any triggered skill that would apply code edits is suggestion-only for lead; impl
-performs the changes.
+skills above. Any triggered skill that would apply code edits is suggestion-only; impl performs the
+changes.
 
 ## Guardrails (keep the autonomous loop safe)
 - **Disagreement cap:** one round = one lead/impl back-and-forth on the same unresolved point.
   If more than 3 rounds pass on an unresolved disagreement or repeated rejection of the same
   proposed fix/rationale, both set `STATUS: escalate` and **HALT for the arbiter**; ordinary
   debugging escalates only when it becomes a real blocker.
-- **Escalate to the arbiter only for:** unresolved disagreement (>3 rounds), a real blocker,
-  scope ambiguity that is genuinely the arbiter's call, or a rate-limit/tooling failure.
-  Otherwise proceed autonomously — do not ask for permission on routine steps.
+- **Escalate to the arbiter only for:** unresolved disagreement (>3 rounds), a real blocker
+  (failing build you can't resolve, missing access), genuinely arbiter-level scope calls, or a
+  rate-limit/tooling failure. Otherwise proceed autonomously; do not ask for permission on routine
+  steps.
 - Keep `requirements.md` item statuses (`todo` / `doing` / `done`) current; it is the source
   of truth for "are we finished".
 - If your pane was restarted and you lack context, re-read `.roundtable/requirements.md`,

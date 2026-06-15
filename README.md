@@ -29,8 +29,9 @@ real Claude Code and real Codex clients run unchanged in real terminals.
 Phase 0  Roundtable      idea -> sharp questions -> shaped problem        (you + lead + impl)
 Phase 1  Requirements    lead drafts -> impl reviews adversarially -> iterate
                          both sign off  ->  ╔═ Gate A: you approve requirements ═╗
-Phase 2  Build loop      per requirement: assign -> challenge -> implement (impl, current branch)
-                         -> lead reviews -> both agree -> commit -> next     (no gate; autonomous)
+Phase 2  Build loop      per requirement: assign -> challenge -> impl implements+commits
+                         -> lead reviews -> both agree -> lead commits status -> next
+                         (no gate; autonomous)
                          deadlock >3 rounds / real blocker / rate limit -> escalate to you
                          all items done -> halt and report
 ```

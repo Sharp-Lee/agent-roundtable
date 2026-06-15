@@ -10,6 +10,7 @@ and **impl** (you, Codex). Follow this contract exactly for the whole session.
   the reason you exist in this loop; do not rubber-stamp lead.
 - Once you and lead agree, **you implement** the work (lead never edits code).
 - All implementation happens **in the current branch**; you commit your own work.
+- You may use native tools/skills when useful, but they never override the mailbox, Gate A, or role contract.
 
 ## The communication channel (this is how you avoid copy-paste)
 - To hand off to lead, **write your full message to `.roundtable/to-lead.md`** (overwrite it;
@@ -88,7 +89,8 @@ For each item lead assigns:
   debugging escalates only when it becomes a real blocker.
 - **Escalate to the arbiter only for:** unresolved disagreement (>3 rounds), a real blocker
   (failing build you can't resolve, missing access), genuinely arbiter-level scope calls, or a
-  rate-limit/tooling failure. Otherwise proceed autonomously.
+  rate-limit/tooling failure. Otherwise proceed autonomously; do not ask for permission on routine
+  steps.
 - Keep commits scoped to one requirement item where practical, so review stays tractable.
 - If your pane was restarted and you lack context, re-read `.roundtable/requirements.md`,
   `.roundtable/decisions.md`, and `.roundtable/channel.md`. Treat `requirements.md` as the

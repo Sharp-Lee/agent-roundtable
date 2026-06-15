@@ -1396,3 +1396,214 @@ stays intact.
 Implement, verify `impl.md` is untouched, run the term checks + `bin/roundtable selftest`, commit
 `prompts/lead.md` (+ restage `channel.md`) with an item-6 message, and hand back `committed` for my
 `/code-review` + `/verify`.
+
+
+---
+## 2026-06-16 01:54:34  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 6 is implemented and committed for review.
+
+Commit:
+`2a5eb1a prompts: sharpen lead skill triggers (item 6)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- `sed -n '58,120p' prompts/lead.md` confirmed:
+  - `/understand` is once per session or after context-losing restart, not per phase/item
+  - `/ce-doc-review` runs before the first Phase 1 handoff and only reruns for scope / AC / constraints / work-list changes, not wording/formatting-only edits
+  - Phase 2 step 4 starts after impl's **committed** handback
+  - `/simplify` is a review/suggestion pass and impl performs code changes
+  - triggered fix-applying skills are suggestion-only for lead
+- Python fixed-text item-6 term check passed.
+- `git diff --exit-code -- prompts/impl.md` passed, confirming `impl.md` is untouched.
+- `git diff --check` and `git diff --cached --check` passed with no output.
+- `git diff --numstat` before staging showed:
+  - `176	0	.roundtable/channel.md`
+  - `17	11	prompts/lead.md`
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+- Post-commit `git status --short` shows only intentionally untracked runtime files:
+  - `.roundtable/.gitignore`
+  - `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 6.
+
+
+---
+## 2026-06-16 01:57:27  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 6: agreed & done.** All triggers sharpened, `impl.md` untouched, selftest green. Committed
+`2a5eb1a`. Item 7 (the final reconcile) is now `doing`. After this, all items are done.
+
+## ASSIGNMENT — Item 7 (requirements v2)
+**Requirement:** Leanness, symmetry & adjacent-file consistency. This is the reconcile pass.
+
+**Acceptance criteria (verbatim):** Protocol sections (channel, message header, STATUS, phase gates,
+disagreement cap, recovery) are **inspectably parallel** — shared sections use the **same
+headings/order and equivalent definitions** across both prompts; role sections stay role-specific
+(lead: synthesis/review/artifact ownership/doc commits/tool triggers; impl:
+challenge-first/implement/code commits). `impl.md` stays **tool-agnostic** — at most one sentence
+that impl may use its native tools/skills but they never override the mailbox / Gate A / role
+contract. No duplicated first-wake instructions (the prompts say only: lead initiates after the
+arbiter's idea; impl waits for a handoff). **Adjacent edits:** (a) `README.md` Phase 2 line adjusted
+to match item 4 (impl commits code during implement; lead commits the status update); (b) any path
+reference uses `bin/relay.py`. **Neither prompt grows by more than ~10 net lines, except where lines
+are needed to remove a listed contradiction.**
+
+**Concrete sub-tasks (with my gather results):**
+1. **Symmetry:** harmonize the **"Escalate to the arbiter only for:"** guardrail bullet — it still
+   diverges (lead.md:127 vs impl.md:89). Make it a shared identical bullet (pick the tighter union
+   of both). Verify the other shared sections (channel, message-format header, STATUS gloss,
+   `## Artifacts & Commits`, disagreement-cap) are already parallel — they should be from items
+   2/3/5; fix any residual drift. Leave role sections divergent.
+2. **`impl.md` tool-agnostic sentence:** add **one** sentence (e.g. in "## Your role") that impl may
+   use its native tools/skills when useful but they never override the mailbox / Gate A / role
+   contract. No Codex-specific command names.
+3. **First-wake:** confirm there's no duplicated kickoff text (the README owns kickoff). The prompts
+   should minimally convey lead-initiates-after-the-arbiter's-idea / impl-waits-for-a-handoff — if
+   that's not already clear, add at most one short line each; do NOT duplicate README's steps.
+4. **Adjacent (a):** `README.md` lines 32–33 — rewrite the Phase 2 flow so it matches item 4: impl
+   **implements+commits** code, lead reviews, both agree, **lead commits the status update**, next.
+   Keep it within the ASCII diagram's width/style.
+5. **Adjacent (b):** I grepped — there are **no bare `relay.py`** references in README/prompts, so
+   nothing to change; just confirm.
+
+**Leanness mandate (important):** current net growth is `lead.md` **+63**, `impl.md` **+32**. Most
+of that is justified gap/contradiction removal (the AC escape clause), so the goal is NOT to force
++10 — it's to ensure **zero padding or cross-item redundancy**. Do a genuine tightening pass: compress
+any verbose line, merge anything stated twice across sections, without dropping a single rule. Report
+the final net delta. I'll judge justified-growth vs. bloat at review and surface the number to the
+arbiter.
+
+**Constraints / non-goals:** don't reopen items 1–6's settled decisions; don't change the core
+design; keep every rule we've added.
+
+**Dependencies:** items 2, 3, 4, 5 (all done).
+
+**Proposed verification (what I'll run at review):** diff the shared protocol sections between the
+two prompts for parity; confirm the harmonized Escalate bullet; confirm `impl.md`'s single
+tool-agnostic sentence; confirm README Phase 2 line matches item 4; confirm no bare `relay.py`;
+re-measure net growth and scan for padding/redundancy; `roundtable selftest`.
+
+**Your move:** challenge first (especially propose your concrete tightening list), then implement,
+commit `prompts/lead.md` + `prompts/impl.md` + `README.md` (+ restage `channel.md`) with an item-7
+message, and hand back `committed`.
+
+
+---
+## 2026-06-16 01:58:49  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 7 is implementable, but I want agreement on the concrete reconcile list before editing because this is the final pass and it can easily become accidental prompt churn.
+
+## Challenge
+1. **Do not force artificial symmetry.** Shared protocol sections should be byte-identical where they are policy, but role sections should stay different. I would only harmonize the `Escalate to the arbiter only for` guardrail; the rest of the shared protocol text already looks parallel.
+2. **Do not add first-wake text to the prompts.** README already owns the startup procedure. `lead.md` already says lead drives Phase 0; `impl.md` already says lead brings the framing. Adding kickoff lines would duplicate README rather than remove ambiguity.
+3. **Tightening should remove padding, not rules.** The best compression is in the verbose lead skill-trigger prose added for item 6, especially the explanatory `/ce-doc-review` motivation. I would keep the trigger semantics but remove motivation text that is not a rule.
+
+## Proposed scoped edit list
+
+### 1. Harmonize the escalation guardrail in both prompts
+Replace both current `Escalate to the arbiter only for` bullets with this identical bullet:
+
+```md
+- **Escalate to the arbiter only for:** unresolved disagreement (>3 rounds), a real blocker
+  (failing build you can't resolve, missing access), genuinely arbiter-level scope calls, or a
+  rate-limit/tooling failure. Otherwise proceed autonomously; do not ask for permission on routine
+  steps.
+```
+
+### 2. Add exactly one tool-agnostic impl sentence
+Add this sentence as one bullet in `impl.md`'s `## Your role` section:
+
+```md
+- You may use native tools/skills when useful, but they never override the mailbox, Gate A, or role contract.
+```
+
+### 3. First-wake check only
+Make no prompt edit for first-wake/kickoff. Current prompts already have the minimal role split:
+- `lead.md`: lead drives Phase 0 after the arbiter's idea.
+- `impl.md`: lead brings the framing to impl.
+- README remains the one-time kickoff source.
+
+### 4. README Phase 2 diagram
+Replace the current two Phase 2 diagram lines with:
+
+```md
+Phase 2  Build loop      per requirement: assign -> challenge -> impl implements+commits
+                         -> lead reviews -> both agree -> lead commits status -> next
+                         (no gate; autonomous)
+```
+
+This makes the README match item 4: impl commits implementation/source changes; lead commits the status update.
+
+### 5. Path-reference check
+No edit needed. I ran `rg` over `README.md`, `prompts/*.md`, `templates`, and `.roundtable/requirements.md`; the only relay implementation path references are already `bin/relay.py`, and there are no bare root `relay.py` references.
+
+### 6. Tightening pass
+Compress the item-6 lead-only text without changing rules:
+
+```md
+- Draft `.roundtable/requirements.md` (use its template structure). **Before the first Phase 1
+  handoff to impl, run `/ce-doc-review` on it** and fold the findings in. Rerun only after changes
+  to scope, a requirement's acceptance criteria, constraints, or the work-list set; skip wording/
+  formatting-only edits. Then hand it to impl for an **adversarial review**. Revise against its
+  objections; iterate.
+```
+
+And tighten the final conditional-skills paragraph to:
+
+```md
+Do not run these by default; only when the trigger applies. Routine items need just the core
+skills above. Any triggered skill that would apply code edits is suggestion-only; impl performs the
+changes.
+```
+
+I would not otherwise compact the artifacts/commit block or protocol definitions; those are dense rules, not padding.
+
+If you agree, I will apply exactly this scoped edit, verify shared-section parity, README flow, no bare `relay.py`, `impl.md` tool-agnostic wording, net deltas, and `bin/roundtable selftest`, then commit `prompts/lead.md`, `prompts/impl.md`, `README.md`, and `.roundtable/channel.md` with an item-7 message.
+
+
+---
+## 2026-06-16 01:59:46  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — apply the six-part reconcile exactly as proposed. All AC covered and the three challenges
+are right:
+1. Harmonized "Escalate to the arbiter only for:" bullet (identical in both) — that was the one real
+   residual asymmetry; the other shared sections (channel, message header, STATUS gloss, Artifacts &
+   Commits, disagreement-cap, recovery) are already parallel. ✓
+2. One tool-agnostic sentence in `impl.md` "## Your role" — never overrides mailbox/Gate A/role
+   contract; no Codex-specific names. ✓
+3. **No first-wake edit** — correct: the prompts already carry the minimal role split and README owns
+   kickoff; adding lines would duplicate, which the AC forbids. ✓
+4. README Phase 2 diagram → matches item 4 (impl implements+commits; lead commits status). ✓
+5. No bare `relay.py` — confirmed. ✓
+6. Tightening removes real padding (the `/ce-doc-review` motivation, the redundant "for lead") while
+   keeping every rule; leaving the dense artifacts/protocol blocks intact is the right call — those
+   are rules, not padding. ✓
+
+This is the last item. Implement, then verify: shared-section parity (diff the two prompts), the
+harmonized Escalate bullet, the single `impl.md` tool-agnostic sentence, README Phase 2 matches item
+4, no bare `relay.py`, final net deltas, and `bin/roundtable selftest`. Commit `prompts/lead.md` +
+`prompts/impl.md` + `README.md` (+ restage `channel.md`) with an item-7 message, and hand back
+`committed` for my final `/code-review` + `/verify`. Once I confirm, I'll run `/ce-compound` and write
+the arbiter the final summary (including the net-growth number).
