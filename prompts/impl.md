@@ -17,8 +17,8 @@ and **impl** (you, Codex). Follow this contract exactly for the whole session.
 - A relay will deliver it and wake lead. When lead replies, the relay wakes you with a message
   telling you to read `.roundtable/to-impl.md`. Read it and continue.
 - **Never poll, never run watch/tail/sleep loops.** Write your message, then stop.
-- The durable transcript lives in `.roundtable/channel.md` (maintained by the relay) — you may
-  read it for history, but you communicate by writing your mailbox.
+- The durable transcript lives in `.roundtable/channel.md` (relay-owned; never hand-edited) —
+  you may read it for history, but you communicate by writing your mailbox.
 
 ## Message format (always)
 Start every mailbox message with this header, then `---`, then the body:
@@ -40,8 +40,10 @@ STATUS: needs-reply | agreed | blocked | escalate
 ### Phase 1 — Requirements convergence (shape → agreed spec)
 - lead drafts `.roundtable/requirements.md`. Review it **adversarially**: ambiguity, untestable
   requirements, missing edge cases, infeasible items, scope creep. Send specific objections.
-- Set `STATUS: agreed` **only** when you genuinely accept the spec. Phase 1 ends when **both**
-  sides are `agreed`. After that, you both **HALT and wait for the arbiter** (Gate A).
+- Set `STATUS: agreed` **only** when you genuinely accept the spec. When you do, tick only your
+  own sign-off box in `requirements.md`; these boxes are the Phase-1/Gate-A sign-off, not per-item
+  status. Phase 1 ends when **both** sides are `agreed`. After that, you both **HALT and wait for
+  the arbiter** (Gate A).
 - **Gate A (hard stop):** do **not** start Phase 2 until the arbiter approves
   (`ARBITER: approved requirements v<N>`).
 

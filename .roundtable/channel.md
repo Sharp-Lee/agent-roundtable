@@ -505,3 +505,180 @@ Implement exactly that scoped edit. Commit `prompts/lead.md` (+ restage `channel
 hand back `committed`, and I'll run `/code-review` + `/verify` against the AC. One small ask: in
 the commit message, reference the item (e.g. `prompts: narrow lead's action prohibition (item 1)`)
 so the per-item history stays legible.
+
+
+---
+## 2026-06-16 01:27:04  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 1 is implemented and committed for review.
+
+Commit:
+`1d1d2e3 prompts: narrow lead's action prohibition (item 1)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- `sed -n '6,16p' prompts/lead.md` shows the approved replacement under `## Your role`.
+- `rg -n "never run build/commit commands|never run .*commit|forbid.*verify|verification/review|doc-only artifact|code committer|implementation code" prompts/lead.md` returns only the new permitted-boundary wording; no old "never run build/commit commands" text remains.
+- `git diff --numstat prompts/lead.md` before commit showed `6	3	prompts/lead.md`, within the leanness bound.
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+
+Post-commit `git status --short` shows only intentionally excluded runtime files:
+- `.roundtable/.gitignore`
+- `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 1.
+
+
+---
+## 2026-06-16 01:29:21  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 1: agreed & done.** Review passed — `/code-review` + `/verify` confirmed all AC: the old
+"never run build/commit commands" is gone, no remaining sentence forbids verification/doc-commit
+(line 21 "never poll" and line 80 "don't run by default" are unrelated), net +3 lines, selftest
+passes. I marked item 1 `done`, item 2 `doing`, committed the doc update (`f9517f9`). Nice catch on
+the read-only wording.
+
+## ASSIGNMENT — Item 2 (requirements v2)
+**Requirement:** Put agreement, version & Gate-A handling on the artifact; keep `channel.md`
+relay-owned.
+
+**Acceptance criteria (verbatim from requirements.md):** `lead.md` no longer instructs lead to
+append `AGREED` (or anything) to `channel.md`; **both prompts** state `channel.md` is relay-owned
+and never hand-edited. Both prompts state: **in Phase 1**, when an agent sets `STATUS: agreed` on
+the requirements it ticks **its own** sign-off box in `requirements.md` (these boxes are the
+Phase-1/Gate-A sign-off, not a per-Phase-2-item action); **lead owns the Version field** (v1
+initially) and **commits the agreed `requirements.md` + `decisions.md`** itself (doc-only).
+`lead.md` states that on an arbiter change-request lead **bumps the version and resets both
+sign-off boxes + the Gate A box in one edit**; after explicit arbiter approval lead **ticks the
+Gate A box, commits it (doc-only)**, and its **first Phase 2 action — the item-1 assignment written
+to the mailbox — re-engages impl via the relay**, so neither agent waits idle at Gate A.
+
+**Target locations (you draft the wording):**
+1. `lead.md` "## The communication channel" — strengthen the existing "maintained by the relay"
+   line to say `channel.md` is **relay-owned and never hand-edited**.
+2. `impl.md` same channel section — mirror that one-liner (keep it parallel).
+3. `lead.md` Phase 1 section — **remove** `append AGREED: requirements v<N> to channel.md`; add the
+   sign-off-tick / version-ownership / lead-commits-agreed-docs behavior; spell out the
+   change-request reset and the post-approval Gate-A tick+commit+re-engage flow. (The Gate A hard
+   stop bullet stays.)
+4. `impl.md` Phase 1 section — state impl ticks **its own** sign-off box when it sets
+   `STATUS: agreed` (parallel to lead).
+
+**Constraints / non-goals:**
+- Stay within item 2's surface. Do NOT define the full file-path commit split or `channel.md`
+  commit cadence here — that's **item 3** (next). Item 2 only needs "lead commits the agreed docs /
+  Gate-A tick (doc-only)"; item 3 generalizes ownership.
+- Do NOT touch the Phase 2 loop ordering / assignment contract — that's **item 4**.
+- The agreed `requirements.md` that lead commits will contain impl's sign-off tick as one of its
+  edits — that's expected; lead commits the whole file (we flagged this earlier).
+- Honor §4 hard constraints; respect the leanness bound (~≤10 net lines/prompt cumulative).
+
+**Dependencies:** none.
+
+**Proposed verification (what I'll run at review):** grep `lead.md` to confirm no `AGREED`→
+`channel.md` instruction remains; confirm both prompts say `channel.md` is relay-owned/never
+hand-edited; confirm both prompts describe the sign-off-tick mechanic and lead's version ownership;
+confirm `lead.md` describes the change-request reset and the post-approval Gate-A flow; check
+parallel wording across the two channel sections; net-line/leanness check; `roundtable selftest`.
+
+**Your move:** challenge first (scope, wording, any overlap risk with items 3/4), then implement,
+commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`), and hand back `committed`.
+
+
+---
+## 2026-06-16 01:30:15  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 2 is implementable, but I want agreement on wording before editing because it touches both prompts and could accidentally absorb item 3.
+
+## Challenge
+The main overlap risk is commit ownership. Item 2 needs the Phase 1/Gate A mechanics: lead owns Version, lead commits agreed `requirements.md` + `decisions.md`, and lead commits the Gate A tick. It should not yet define the general "lead commits only these files / impl commits everything else + channel" split, because that belongs to item 3.
+
+I also recommend avoiding "v1 initially" as runtime state. In the source prompt it should read as a reusable rule: "start at v1 and bump..." rather than implying this session's current v2.
+
+## Proposed scoped edit
+Use these edits only:
+
+1. In both channel sections, replace the durable transcript line with the parallel one-liner:
+
+```md
+- The durable transcript lives in `.roundtable/channel.md` (relay-owned; never hand-edited) —
+  you may read it for history, but you communicate by writing your mailbox.
+```
+
+2. In `lead.md` Phase 1, replace the existing "Phase 1 ends..." bullet and update the Gate A bullet to:
+
+```md
+- In Phase 1, you own the Version field in `requirements.md` (start at v1; bump it whenever the
+  arbiter requests changes). When you set `STATUS: agreed` on the requirements, tick your own
+  sign-off box in `requirements.md`; these boxes are the Phase-1/Gate-A sign-off, not per-item
+  status.
+- Phase 1 ends only when both sides set `STATUS: agreed` and both sign-off boxes are ticked.
+  Finalize `requirements.md`/`decisions.md`, commit those doc-only artifacts, then **HALT for the
+  arbiter**: write a mailbox message to impl with `STATUS: blocked` noting you are both waiting on
+  arbiter approval, and tell the arbiter (in your pane output) that the requirements are ready for
+  review.
+- **Gate A (hard stop):** do **not** enter Phase 2 until the arbiter explicitly approves
+  (the arbiter will type `ARBITER: approved requirements v<N>`). If the arbiter requests changes,
+  return to Phase 1: bump Version and reset both sign-off boxes plus the Gate A box in one edit.
+  After approval, tick the Gate A box, commit it (doc-only), then write the first Phase 2 item
+  assignment to impl; that mailbox write re-engages impl via the relay.
+```
+
+3. In `impl.md` Phase 1, replace the "Set STATUS: agreed..." bullet with:
+
+```md
+- Set `STATUS: agreed` **only** when you genuinely accept the spec. When you do, tick only your
+  own sign-off box in `requirements.md`; these boxes are the Phase-1/Gate-A sign-off, not per-item
+  status. Phase 1 ends when **both** sides are `agreed`. After that, you both **HALT and wait for
+  the arbiter** (Gate A).
+```
+
+This satisfies item 2 without editing Phase 2 ordering or defining the full commit split. It will likely grow `lead.md` by about 8 net lines and `impl.md` by about 2 net lines, still within the cumulative leanness guard.
+
+If you agree, I will apply exactly this scoped edit, verify no `AGREED`→`channel.md` instruction remains, run `bin/roundtable selftest`, then commit `prompts/lead.md`, `prompts/impl.md`, and `.roundtable/channel.md`.
+
+
+---
+## 2026-06-16 01:31:33  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — your scoped edit is approved as proposed. Both challenges are correct:
+- **No item-3 absorption:** stating only "lead commits the agreed docs / Gate-A tick (doc-only)"
+  without the general file-path split is exactly the right boundary. Item 3 generalizes ownership.
+- **Reusable rule, not runtime state:** "start at v1; bump whenever the arbiter requests changes"
+  is the right phrasing for a source prompt — good catch not hard-coding this session's v2.
+
+Your three edits cover every AC clause (channel relay-owned/never-hand-edited in both prompts; the
+sign-off-tick mechanic parallel in both; lead's version ownership; lead commits the agreed
+`requirements.md`+`decisions.md`; the change-request reset of version + both sign-offs + Gate A box;
+the post-approval Gate-A tick → commit → write item-1 assignment → re-engage). Apply them as
+written.
+
+**On leanness:** your estimate (lead.md ~+8, impl.md ~+2) is fine — don't compress AC-required
+content to hit a number. Cumulative growth across all 7 items will run past a literal +10 on
+`lead.md`; that's expected for genuine contradiction/gap fixes (the bound's escape clause). Item 7
+is where we'll judge justified-growth vs. bloat and tighten. Just don't pad.
+
+Implement, verify no `AGREED`→`channel.md` instruction remains, run `bin/roundtable selftest`,
+commit `prompts/lead.md` + `prompts/impl.md` (+ restage `channel.md`) with an item-2 message, and
+hand back `committed` for my `/code-review` + `/verify`.

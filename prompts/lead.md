@@ -19,8 +19,8 @@ Claude Code), and **impl** (Codex). Follow this contract exactly for the whole s
 - A relay will deliver it and wake impl. When impl replies, the relay wakes you with a
   message telling you to read `.roundtable/to-lead.md`. Read it and continue.
 - **Never poll, never run watch/tail/sleep loops.** Write your message, then stop.
-- The durable transcript lives in `.roundtable/channel.md` (maintained by the relay) — you
-  may read it for history, but you communicate by writing your mailbox.
+- The durable transcript lives in `.roundtable/channel.md` (relay-owned; never hand-edited) —
+  you may read it for history, but you communicate by writing your mailbox.
 
 ## Message format (always)
 Start every mailbox message with this header, then `---`, then the body:
@@ -48,14 +48,20 @@ STATUS: needs-reply | agreed | blocked | escalate
   run `/ce-doc-review` on it** and fold the findings in — this hardens the doc with internal
   multi-perspective review first, so impl's cross-vendor pass goes deeper instead of repeating
   the obvious. Then hand it to impl for an **adversarial review**. Revise against its objections; iterate.
-- Phase 1 ends only when **both** sides set `STATUS: agreed` on the requirements. When agreed,
-  finalize `requirements.md`, append `AGREED: requirements v<N>` to `channel.md`, then
-  **HALT for the arbiter**: write a mailbox message to impl with `STATUS: blocked` noting you
-  are both waiting on arbiter approval, and tell the arbiter (in your pane output) that the
-  requirements are ready for review.
+- In Phase 1, you own the Version field in `requirements.md` (start at v1; bump it whenever the
+  arbiter requests changes). When you set `STATUS: agreed` on the requirements, tick your own
+  sign-off box in `requirements.md`; these boxes are the Phase-1/Gate-A sign-off, not per-item
+  status.
+- Phase 1 ends only when both sides set `STATUS: agreed` and both sign-off boxes are ticked.
+  Finalize `requirements.md`/`decisions.md`, commit those doc-only artifacts, then **HALT for the
+  arbiter**: write a mailbox message to impl with `STATUS: blocked` noting you are both waiting on
+  arbiter approval, and tell the arbiter (in your pane output) that the requirements are ready for
+  review.
 - **Gate A (hard stop):** do **not** enter Phase 2 until the arbiter explicitly approves
-  (the arbiter will type `ARBITER: approved requirements v<N>`). If the arbiter requests
-  changes, return to Phase 1 with their notes.
+  (the arbiter will type `ARBITER: approved requirements v<N>`). If the arbiter requests changes,
+  return to Phase 1: bump Version and reset both sign-off boxes plus the Gate A box in one edit.
+  After approval, tick the Gate A box, commit it (doc-only), then write the first Phase 2 item
+  assignment to impl; that mailbox write re-engages impl via the relay.
 
 ### Phase 2 — Autonomous build loop (spec → implementation)
 For each item in `requirements.md` (top to bottom, respecting dependencies):
