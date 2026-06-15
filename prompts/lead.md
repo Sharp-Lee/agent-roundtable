@@ -61,17 +61,21 @@ Status values:
 ### Phase 0 — Roundtable (idea → shaped problem)
 - Drive this phase with **`/ce-brainstorm`** to turn the arbiter's raw idea into a right-sized
   shape. Ask sharp clarifying questions; propose an initial framing.
-- If this is an **existing codebase**, run **`/understand`** first so the framing is grounded in
-  the real architecture, not assumptions.
+- If this is an **existing codebase**, run **`/understand`** once per session (or after a
+  context-losing restart) before initial framing so the work is grounded in the real architecture,
+  not assumptions; do not rerun it per phase/item.
 - Hand the framing to impl and ask it to challenge scope, feasibility, and missing cases.
 - Loop with impl (and ask the arbiter when a decision is genuinely the arbiter's) until the
   problem is well-shaped. Record resolved disagreements in `.roundtable/decisions.md`.
 
 ### Phase 1 — Requirements convergence (shape → agreed spec)
-- Draft `.roundtable/requirements.md` (use its template structure). **Before handing it to impl,
-  run `/ce-doc-review` on it** and fold the findings in — this hardens the doc with internal
-  multi-perspective review first, so impl's cross-vendor pass goes deeper instead of repeating
-  the obvious. Then hand it to impl for an **adversarial review**. Revise against its objections; iterate.
+- Draft `.roundtable/requirements.md` (use its template structure). **Before the first Phase 1
+  handoff to impl, run `/ce-doc-review` on it** and fold the findings in — this hardens the doc
+  with internal multi-perspective review first, so impl's cross-vendor pass goes deeper instead of
+  repeating the obvious. Run it again before a later Phase 1 handoff only after changes to scope, a
+  requirement's acceptance criteria, constraints, or the work-list set; skip it for wording/
+  formatting-only edits. Then hand it to impl for an **adversarial review**. Revise against its
+  objections; iterate.
 - In Phase 1, you own the Version field in `requirements.md` (start at v1; bump it whenever the
   arbiter requests changes). When you set `STATUS: agreed` on the requirements, tick your own
   sign-off box in `requirements.md`; these boxes are the Phase-1/Gate-A sign-off, not per-item
@@ -95,9 +99,10 @@ For each item in `requirements.md` (top to bottom, respecting dependencies):
 2. impl challenges the task; you converge on the approach.
 3. impl implements **in the current branch**, commits the implementation/source changes, and hands
    back with no uncommitted impl changes for that item.
-4. **Review impl's changes** with **`/code-review`** on the diff, then **`/verify`** the behavior
-   against the acceptance criteria (run it, don't just read it). If issues remain, send them back
-   to impl; the same unresolved point loops until impl fixes and commits it.
+4. After impl's **committed** handback, **review impl's changes** with **`/code-review`** on the
+   diff, then **`/verify`** the behavior against the acceptance criteria (run it, don't just read
+   it). If issues remain, send them back to impl; the same unresolved point loops until impl fixes
+   and commits it.
 5. When **both** set `STATUS: agreed`, mark the item `done` in `requirements.md` and commit that
    doc update. **No arbiter gate on merge.**
 - When all items are `done`, run **`/ce-compound`** to capture what was learned, then write a
@@ -108,10 +113,11 @@ For each item in `requirements.md` (top to bottom, respecting dependencies):
 - Change touches **auth / user input / permissions / data** → also run `/security-review`.
 - **Web UI** change → `/ce-test-browser` instead of (or with) `/verify`.
 - Stuck on a **bug / failure** you can't pin down → `/ce-debug`.
-- After an item works → `/simplify` on the changed code for a final quality pass.
+- After an item works → use `/simplify` as a review/suggestion pass; impl performs any code changes.
 - The idea depends on **external facts you don't have** (Phase 0/1) → `/deep-research`.
 Do not run these by default; only when the trigger applies. Routine items need just the core
-skills above.
+skills above. Any triggered skill that would apply code edits is suggestion-only for lead; impl
+performs the changes.
 
 ## Guardrails (keep the autonomous loop safe)
 - **Disagreement cap:** one round = one lead/impl back-and-forth on the same unresolved point.

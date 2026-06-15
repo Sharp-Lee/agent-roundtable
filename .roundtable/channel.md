@@ -1220,3 +1220,179 @@ compress it now; item 7 is where I'll judge any cross-item redundancy and tighte
 Implement, verify the protocol terms plus `bin/roundtable selftest`, commit `prompts/lead.md` +
 `prompts/impl.md` (+ restage `channel.md`) with an item-5 message, and hand back `committed` for my
 `/code-review` + `/verify`.
+
+
+---
+## 2026-06-16 01:49:18  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 5 is implemented and committed for review.
+
+Commit:
+`0249690 prompts: define protocol terms and recovery (item 5)`
+
+Changed files in the commit:
+- `prompts/lead.md`
+- `prompts/impl.md`
+- `.roundtable/channel.md`
+
+Verification I ran before commit:
+- `sed` inspection confirmed both prompts now include:
+  - arbiter-via-pane-only and inbox recovery in the communication section
+  - four STATUS value glosses immediately after the message-format block
+  - the shared one-round / >3-round disagreement-cap text
+  - restart recovery with `requirements.md` as authority, `decisions.md` for settled rationale, and `channel.md` as history
+- A Python fixed-text check passed for the required protocol terms in both prompts and confirmed the STATUS gloss block is identical.
+- `git diff --check` and `git diff --cached --check` passed with no output.
+- `bin/roundtable selftest` passed:
+  - `[PASS] handoff appended to channel.md (transcript works)`
+  - `[PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)`
+- Post-commit `git status --short` shows only intentionally untracked runtime files:
+  - `.roundtable/.gitignore`
+  - `.roundtable/prompts/`
+
+Ready for your `/code-review` + `/verify` on item 5.
+
+
+---
+## 2026-06-16 01:50:43  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+**Item 5: agreed & done.** `/code-review` + `/verify` passed — channel bullets, STATUS gloss, and
+the harmonized disagreement-cap bullet are byte-identical in both prompts; restart-recovery names
+`requirements.md` as authority. `git diff --check` clean, selftest green. Committed `0249690`. Item
+6 is now `doing`.
+
+## ASSIGNMENT — Item 6 (requirements v2)
+**Requirement:** Sharpen the skill-trigger guidance in `lead.md` (keep it lean & trigger-based).
+**This is `lead.md`-only** — `impl.md` stays tool-agnostic (item 7 adds its one tool-agnostic line).
+
+**Acceptance criteria (verbatim):** `lead.md` states: `/understand` runs **once per
+existing-codebase session** (or after a context-losing restart), not per phase/item;
+`/ce-doc-review` before the **first** Phase 1 handoff and after any change to **scope, a
+requirement's acceptance criteria, constraints, or the work-list set** (not wording/formatting-only
+edits); `/ce-plan` per Phase 2 requirement; `/code-review` + `/verify` after impl's **committed**
+handback. `/simplify` (and any fix-applying skill) is reframed as a **review/suggestion pass for
+lead — impl performs all code changes.** Conditional skills remain trigger-based.
+
+**Target locations (current text):**
+- **`/understand`** — Phase 0 line 64: "run `/understand` **first** so the framing is grounded…" →
+  add the **once-per-session (or after a context-losing restart), not per phase/item** qualifier.
+- **`/ce-doc-review`** — Phase 1 line 72: "run `/ce-doc-review` on it and fold the findings in…" →
+  add the **observable re-run trigger** (before first Phase 1 handoff; after scope/AC/constraints/
+  work-list changes; not wording-only).
+- **`/ce-plan`** (Phase 2 step 1) and **`/code-review` + `/verify`** (Phase 2 step 4) already read
+  per-requirement / after handback — affirm with a light touch only if needed (e.g. "after impl's
+  **committed** handback"); don't rework the loop (item 4 settled it).
+- **`/simplify`** — Conditional-skills line 111: "After an item works → `/simplify` on the changed
+  code…" → reframe as **a review/suggestion pass for lead; impl makes any code changes** — and
+  generalize: any skill that would apply code edits is suggestion-only for lead.
+
+**Constraints / non-goals:**
+- `lead.md` only. Do NOT touch item-5 protocol text or do the item-7 symmetry sweep.
+- Don't add or remove conditional skills; keep the "use only when triggered / don't run by default"
+  framing intact.
+- Honor §4 hard constraints; near net-neutral on length (lead.md is large now — edit in place,
+  don't expand).
+
+**Dependencies:** item 1 (done).
+
+**Proposed verification (what I'll run at review):** confirm `/understand` says once-per-session;
+`/ce-doc-review` has the observable trigger (incl. "not wording-only"); `/ce-plan` per requirement
+and `/code-review`+`/verify` after committed handback read correctly; `/simplify` (and fix-applying
+skills) is suggestion-only for lead with impl making changes; conditional skills still trigger-based;
+`impl.md` unchanged; net-line check; `roundtable selftest`.
+
+**Your move:** challenge first (placement, wording, leanness), then implement, commit `prompts/lead.md`
+(+ restage `channel.md`) with an item-6 message, and hand back `committed`.
+
+
+---
+## 2026-06-16 01:51:47  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 6 is implementable, but I want agreement on the exact wording before editing because this is lead-only tool-trigger policy and we should avoid drifting into item 7.
+
+## Challenge
+1. **Do not turn triggers into a schedule.** The `/understand` and `/ce-doc-review` changes should stay tied to concrete moments/triggers, not imply repeated mandatory passes.
+2. **Keep code-editing prohibition scoped to lead.** The `/simplify` wording should say lead treats fix-applying skills as review/suggestions; it should not weaken impl's responsibility to make the actual changes.
+3. **Leave settled loop text mostly intact.** `/ce-plan` is already per requirement because it sits under "For each item"; `/code-review` + `/verify` only need the light "committed handback" qualifier.
+
+## Proposed scoped edit
+Replace the Phase 0 `/understand` bullet with:
+
+```md
+- If this is an **existing codebase**, run **`/understand`** once per session (or after a
+  context-losing restart) before initial framing so the work is grounded in the real architecture,
+  not assumptions; do not rerun it per phase/item.
+```
+
+Replace the Phase 1 `/ce-doc-review` sentence with:
+
+```md
+- Draft `.roundtable/requirements.md` (use its template structure). **Before the first Phase 1
+  handoff to impl, run `/ce-doc-review` on it** and fold the findings in — this hardens the doc
+  with internal multi-perspective review first, so impl's cross-vendor pass goes deeper instead of
+  repeating the obvious. Run it again before a later Phase 1 handoff only after changes to scope, a
+  requirement's acceptance criteria, constraints, or the work-list set; skip it for wording/
+  formatting-only edits. Then hand it to impl for an **adversarial review**. Revise against its
+  objections; iterate.
+```
+
+Lightly revise Phase 2 step 4 to start:
+
+```md
+4. After impl's **committed** handback, **review impl's changes** with **`/code-review`** on the
+   diff, then **`/verify`** the behavior against the acceptance criteria ...
+```
+
+Replace the `/simplify` conditional bullet with:
+
+```md
+- After an item works → use `/simplify` as a review/suggestion pass; impl performs any code changes.
+```
+
+Append this sentence to the existing "Do not run these by default..." paragraph:
+
+```md
+Any triggered skill that would apply code edits is suggestion-only for lead; impl performs the changes.
+```
+
+I would leave `/ce-plan` unchanged because the surrounding "For each item in `requirements.md`" already makes it per Phase 2 requirement.
+
+If you agree, I will apply exactly this `lead.md`-only edit, verify `impl.md` is unchanged, run the term checks plus `bin/roundtable selftest`, commit `prompts/lead.md` and `.roundtable/channel.md` with an item-6 message, and hand back committed.
+
+
+---
+## 2026-06-16 01:52:23  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Agreed — apply the `lead.md`-only edit exactly as proposed. All AC covered:
+- `/understand` once per session / after context-losing restart, not per phase/item ✓
+- `/ce-doc-review` before the first Phase 1 handoff + observable re-run trigger (scope, a
+  requirement's AC, constraints, or the work-list; skip wording/formatting-only) ✓
+- Phase 2 step 4 starts "After impl's **committed** handback…" ✓
+- `/simplify` is a review/suggestion pass for lead; impl performs code changes — plus the general
+  "any triggered skill that would apply code edits is suggestion-only for lead" sentence ✓
+- `/ce-plan` left unchanged (already per-requirement by its "For each item" placement) ✓
+
+Your three challenges are all right: keep triggers tied to moments not a schedule; scope the
+code-edit prohibition to lead without weakening your implement-everything responsibility; and don't
+re-litigate the settled loop text. Conditional-skills "trigger-based / don't run by default" framing
+stays intact.
+
+Implement, verify `impl.md` is untouched, run the term checks + `bin/roundtable selftest`, commit
+`prompts/lead.md` (+ restage `channel.md`) with an item-6 message, and hand back `committed` for my
+`/code-review` + `/verify`.
