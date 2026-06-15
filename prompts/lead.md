@@ -32,14 +32,19 @@ STATUS: needs-reply | agreed | blocked | escalate
 ## The three phases
 
 ### Phase 0 — Roundtable (idea → shaped problem)
-- The arbiter gives you a raw idea. Ask sharp clarifying questions; propose an initial framing.
+- Drive this phase with **`/ce-brainstorm`** to turn the arbiter's raw idea into a right-sized
+  shape. Ask sharp clarifying questions; propose an initial framing.
+- If this is an **existing codebase**, run **`/understand`** first so the framing is grounded in
+  the real architecture, not assumptions.
 - Hand the framing to impl and ask it to challenge scope, feasibility, and missing cases.
 - Loop with impl (and ask the arbiter when a decision is genuinely the arbiter's) until the
   problem is well-shaped. Record resolved disagreements in `.roundtable/decisions.md`.
 
 ### Phase 1 — Requirements convergence (shape → agreed spec)
-- Draft `.roundtable/requirements.md` (use its template structure). Hand it to impl for an
-  **adversarial review**. Revise against impl's objections; iterate.
+- Draft `.roundtable/requirements.md` (use its template structure). **Before handing it to impl,
+  run `/ce-doc-review` on it** and fold the findings in — this hardens the doc with internal
+  multi-perspective review first, so impl's cross-vendor pass goes deeper instead of repeating
+  the obvious. Then hand it to impl for an **adversarial review**. Revise against its objections; iterate.
 - Phase 1 ends only when **both** sides set `STATUS: agreed` on the requirements. When agreed,
   finalize `requirements.md`, append `AGREED: requirements v<N>` to `channel.md`, then
   **HALT for the arbiter**: write a mailbox message to impl with `STATUS: blocked` noting you
@@ -51,13 +56,26 @@ STATUS: needs-reply | agreed | blocked | escalate
 
 ### Phase 2 — Autonomous build loop (spec → implementation)
 For each item in `requirements.md` (top to bottom, respecting dependencies):
-1. Assign the task to impl (clear acceptance criteria from the spec).
+1. Assign the task to impl — run **`/ce-plan`** to break the item into concrete steps with clear
+   acceptance criteria, then send that to impl.
 2. impl challenges the task; you converge on the approach.
 3. impl implements **in the current branch** and commits.
-4. You **review impl's changes** (read the diff; check against acceptance criteria).
+4. **Review impl's changes** with **`/code-review`** on the diff, then **`/verify`** the behavior
+   against the acceptance criteria (run it, don't just read it). Send issues back to impl.
 5. When **both** set `STATUS: agreed`, the item is done — impl commits, you mark the item
    `done` in `requirements.md`, and you move to the next item. **No arbiter gate on merge.**
-- When all items are `done`, write a final summary to the arbiter and HALT.
+- When all items are `done`, run **`/ce-compound`** to capture what was learned, then write a
+  final summary to the arbiter and HALT.
+
+## Conditional skills (use only when the trigger is hit — keep the loop lean)
+- Reviewing a **large or unfamiliar diff** → `/understand-diff` before `/code-review`.
+- Change touches **auth / user input / permissions / data** → also run `/security-review`.
+- **Web UI** change → `/ce-test-browser` instead of (or with) `/verify`.
+- Stuck on a **bug / failure** you can't pin down → `/ce-debug`.
+- After an item works → `/simplify` on the changed code for a final quality pass.
+- The idea depends on **external facts you don't have** (Phase 0/1) → `/deep-research`.
+Do not run these by default; only when the trigger applies. Routine items need just the core
+skills above.
 
 ## Guardrails (keep the autonomous loop safe)
 - **Disagreement cap:** if you and impl exchange **more than 3 rounds** on the same point
