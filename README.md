@@ -65,6 +65,8 @@ roundtable init            # scaffolds .roundtable/ (requirements, channel, deci
 roundtable start           # opens tmux: left=lead | right=impl | window 'relay'
 ```
 
+`rt` is a built-in shorthand for `roundtable` (e.g. `rt start`, `rt list`, `rt stop`).
+
 On first start, do the **one-time kickoff** (the only manual paste in the whole flow):
 
 1. Left pane (Claude Code is up): send
