@@ -1,5 +1,14 @@
 # agent-roundtable
 
+[![Repo](https://img.shields.io/badge/GitHub-agent--roundtable-181717?logo=github&logoColor=white)](https://github.com/Sharp-Lee/agent-roundtable)
+![Bash](https://img.shields.io/badge/Bash-4EAA25?logo=gnubash&logoColor=white)
+![Python 3.8+](https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white)
+![Requires tmux](https://img.shields.io/badge/requires-tmux-1BB91F?logo=tmux&logoColor=white)
+![Zero deps](https://img.shields.io/badge/deps-stdlib%20only-success)
+![Agents](https://img.shields.io/badge/agents-Claude%20Code%20%2B%20Codex-8A2BE2)
+
+> **Repo:** https://github.com/Sharp-Lee/agent-roundtable
+
 A tiny relay that removes the **copy-paste between two interactive agent CLIs**.
 
 Three parties collaborate on one project:
