@@ -7,15 +7,17 @@
 # relaying mailbox-file writes between them (see bin/relay.py). It never
 # touches the agents' model loop or native abilities.
 #
-# Subcommands:
+# Subcommands (also available as `rt`):
 #   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
-#   roundtable start  [dir]   Launch the tmux session (lead | impl | relay) and attach
-#   roundtable stop           Kill the tmux session
+#   roundtable start  [dir]   Launch a per-project tmux session (lead | impl | relay) and attach
+#   roundtable stop   [dir]   Kill this project's session (default: cwd)
+#   roundtable list           List running roundtable sessions
+#   roundtable selftest       Verify the relay works on this machine (no real CLIs needed)
 #
 # Env overrides:
 #   CLAUDE_CMD (default: claude)   command to start the lead CLI
 #   CODEX_CMD  (default: codex)    command to start the impl CLI
-#   SESSION    (default: roundtable)
+#   SESSION    (default: per-project roundtable-<name>-<hash>)
 set -euo pipefail
 
 TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
