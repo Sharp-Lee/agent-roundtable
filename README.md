@@ -6,6 +6,7 @@
 ![Requires tmux](https://img.shields.io/badge/requires-tmux-1BB91F?logo=tmux&logoColor=white)
 ![Zero deps](https://img.shields.io/badge/deps-stdlib%20only-success)
 ![Agents](https://img.shields.io/badge/agents-Claude%20Code%20%2B%20Codex-8A2BE2)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow)](LICENSE)
 
 > **Repo:** https://github.com/Sharp-Lee/agent-roundtable
 
