@@ -296,3 +296,212 @@ Then reply `STATUS: blocked` (waiting for Gate A). **Do not start Phase 2** — 
 stop until the arbiter approves. I'm telling the arbiter now that requirements v1 are ready for
 review. After approval I'll tick the Gate A box and assign item 1, which re-engages you via the
 relay.
+
+
+---
+## 2026-06-16 00:28:00  impl -> lead
+
+PHASE: 1-requirements
+FROM: impl
+STATUS: blocked
+---
+Checkpoint commit is complete.
+
+Commit:
+`00fc6d1 docs(roundtable): agree requirements v1 for prompt hardening`
+
+Committed exactly the agreed artifact set:
+- `.roundtable/requirements.md`
+- `.roundtable/decisions.md`
+- `.roundtable/channel.md`
+
+Post-commit `git status --short` still shows only intentionally excluded runtime files:
+- `.roundtable/.gitignore`
+- `.roundtable/prompts/`
+
+I did not commit mailboxes, `panes.env`, or `.roundtable/prompts/`.
+
+Blocking now at Gate A. I will not start Phase 2 until the arbiter explicitly approves requirements v1 and you re-engage me with the item-1 assignment.
+
+
+---
+## 2026-06-16 01:11:06  lead -> impl
+
+PHASE: 1-requirements
+FROM: lead
+STATUS: needs-reply
+---
+The arbiter requested a change at Gate A, so we're back in Phase 1 with **requirements.md bumped
+to v2**. Sign-off boxes and the Gate A box are reset. Please adversarially review v2 and sign off
+only if you genuinely accept it.
+
+## The v2 change (arbiter-directed)
+**Relax the commit model.** Lead MAY now commit doc-only artifact changes (`requirements.md` /
+`decisions.md`, channel-free); impl remains the sole implementer AND sole committer of code. The
+entire v1 "impl persists lead's edits on its next turn" machinery — checkpoint-commit handoffs,
+artifact-only checkpoint commits, the no-code-item special case — is **collapsed/removed**. I
+logged this as decision #4 (superseding #3). Items 1, 2, 3, 4 were updated; items 5, 6, 7 are
+unchanged from the v1 you already accepted.
+
+## Two fixes I folded in from a focused /ce-doc-review (coherence + feasibility) on v2
+The relaxation introduced two real gaps; both are resolved without rebuilding the removed machinery:
+1. **Committer boundary by FILE, not "doc vs code"** (this was ambiguous — our own Phase-2 work
+   edits `prompts/*.md` and `README.md`, which are neither your "code" nor lead's docs). Item 3 +
+   §4 now state it crisply: **lead commits only `requirements.md` + `decisions.md`; impl commits
+   everything else in the work tree (code, `prompts/*.md`, README, templates) plus `channel.md`.**
+2. **`channel.md` transcript-commit gap.** With lead channel-free and Phase 1 having no code
+   commit, the Phase-1 transcript (and each item's trailing tail) wouldn't be committed promptly.
+   Resolution: impl restages `channel.md` on each commit (sweeping the transcript to date), and we
+   state explicitly that **`channel.md`'s commit cadence is not load-bearing** — recovery reads the
+   on-disk working tree, which always holds the full transcript. The residual (a *fresh clone*
+   taken before the first Phase-2 commit lags the live transcript) is logged in §5 as an accepted
+   minor limitation, traded against reintroducing the flush machinery the arbiter just removed.
+
+## Specifically challenge
+1. **Did the collapse leave any contradiction?** I believe items 2/4/§4 no longer reference the
+   removed checkpoint machinery — confirm, or point to a dangling reference.
+2. **The §5 accepted limitation** (fresh-clone-lags-transcript) — do you agree it's acceptable, or
+   do you want a lightweight flush you can own without a handoff turn? Your call; I'd keep it lean.
+3. **The file-path committer split** — clean for you to follow, or any edge file whose owner is
+   still ambiguous?
+4. Anything else the relaxation broke.
+
+If you accept: `STATUS: agreed` + tick the **impl** sign-off box in `requirements.md`. I'll tick
+lead's, finalize v2, and we HALT for the arbiter at Gate A again.
+
+
+---
+## 2026-06-16 01:12:39  impl -> lead
+
+PHASE: 1-requirements
+FROM: impl
+STATUS: agreed
+---
+I accept `.roundtable/requirements.md` v2.
+
+I ticked only the impl sign-off box:
+
+`**Sign-off:** lead: ☐  impl: ☑   |   **Arbiter approval (Gate A):** ☐`
+
+Adversarial review notes:
+- I found no remaining dangling dependency on the removed v1 checkpoint-commit machinery in items 2/4/§4.
+- I accept the §5 transcript limitation. I do not want to add a lightweight channel flush; that would drift back toward the machinery the arbiter explicitly removed. I will restage `channel.md` whenever I make an implementation commit.
+- The file-path committer split is clean enough to follow: lead commits only `.roundtable/requirements.md` and `.roundtable/decisions.md`; impl commits all implementation/source-adjacent files plus `.roundtable/channel.md`; neither side commits mailboxes, `panes.env`, or `.roundtable/prompts/`.
+
+One implementation note, not an objection: when you translate v2 into the source prompts, make the file-path split phrase explicit enough that "lead commits requirements/decisions" covers the final agreed requirements file even though my sign-off tick is one of the edits inside it.
+
+No remaining objections from impl. Please tick lead's sign-off, finalize and commit v2 under the relaxed doc-only commit rule, then halt for Gate A again.
+
+
+---
+## 2026-06-16 01:24:09  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: needs-reply
+---
+Gate A passed — arbiter approved requirements **v2**. I ticked Gate A and committed the doc updates
+(`876e554`, `8114909`). Entering Phase 2. Per our convergence, item 1 status is now `doing`.
+
+## Execution strategy (heads-up for the whole loop)
+All seven items edit the same two files (`prompts/lead.md`, `prompts/impl.md`) plus README in item
+7. We go **top to bottom in dependency order**, **one focused commit per item**, touching only the
+section that item owns so changes don't collide. Item 7 is the final symmetry/leanness reconcile.
+Please don't pre-edit sections owned by later items.
+
+## ASSIGNMENT — Item 1 (requirements v2)
+**Requirement:** Narrow lead's action prohibition so it stops contradicting the review/verify loop.
+
+**Target (exact current text in `prompts/lead.md`, "## Your role", 2nd bullet):**
+> "You are a **reviewer, not an implementer**: you **never edit code, never run build/commit
+> commands**. impl is the only party that writes code. If implementation work is needed, you
+> specify it and hand it to impl."
+That `never run build/commit commands` is the self-contradiction (lead must run `/verify`,
+`/code-review`, etc., and under v2 may commit doc-only changes).
+
+**Acceptance criteria (from requirements.md):** `lead.md` no longer says lead may "never run
+build/commit commands." It states lead **never edits implementation code and is not the code
+committer**, but **may** (a) run **read-only inspection, verification, and review commands** (e.g.
+`/verify`, `/code-review`, `/security-review`, `/ce-test-browser`) and (b) **commit doc-only
+artifact changes** to `requirements.md` / `decisions.md`. No remaining sentence in `lead.md`
+forbids running verification or committing doc-only changes.
+
+**Constraints / non-goals:**
+- Scope this edit to the "## Your role" section's prohibition wording **only**. Do NOT duplicate
+  item 3's full commit model here — item 1 establishes the permission briefly; item 3 details it.
+- Don't touch other sections (channel, phases, guardrails) — they belong to later items.
+- Honor §4 hard constraints (no core-design change); keep it concise (leanness bound applies).
+- You draft the replacement wording (you're the implementer); I'll review, not dictate it.
+
+**Dependencies:** none (item 1 has no deps).
+
+**Proposed verification (what I'll run at review):** read `lead.md` "## Your role" to confirm the
+new wording; grep `lead.md` to confirm no remaining sentence forbids running verification or
+committing doc-only changes (e.g. no lingering "never run ... commit"); confirm net length growth
+is within bounds; `roundtable selftest` still passes (prompt edits must not affect the relay).
+
+**Your move:** challenge the task first (approach, wording, any risk or ambiguity). Once we agree,
+implement it in the current branch, commit (this is a `prompts/*.md` edit → **your** commit, and
+restage `channel.md` with it per item 3), and hand back `committed` for my `/code-review` +
+`/verify`.
+
+
+---
+## 2026-06-16 01:24:59  impl -> lead
+
+PHASE: 2-build
+FROM: impl
+STATUS: needs-reply
+---
+Item 1 is well-scoped and implementable. I have one wording challenge before editing:
+
+## Challenge
+The acceptance text says lead may run "read-only inspection, verification, and review commands." If "read-only" modifies all three nouns, it can accidentally preserve the original contradiction: real verification/build/test commands may create caches, logs, or build artifacts even though they do not edit implementation code. The role rule should forbid implementation edits and code commits, not harmless verification side effects.
+
+## Proposed replacement
+Replace only the second bullet under `## Your role` in `prompts/lead.md` with:
+
+```md
+- You are a **reviewer, not an implementer**: you **never edit implementation code and are not
+  the code committer**. You may run read-only inspection commands and non-implementation
+  verification/review commands (including `/verify`, `/code-review`, `/security-review`, and
+  `/ce-test-browser`), and you may commit doc-only artifact changes to
+  `.roundtable/requirements.md` / `.roundtable/decisions.md`. If implementation work is needed,
+  specify it and hand it to impl.
+```
+
+Why this is better:
+- It removes "never run build/commit commands."
+- It states the required boundary: no implementation-code edits and not the code committer.
+- It allows verification/review commands without implying they must be filesystem-read-only.
+- It mentions doc-only artifact commits briefly, leaving item 3 to define the full file-path split.
+- It stays confined to the assigned role bullet.
+
+If you agree, I will make exactly this scoped edit, stage `prompts/lead.md` plus the current `channel.md` transcript, commit it, and hand back for review.
+
+
+---
+## 2026-06-16 01:25:35  lead -> impl
+
+PHASE: 2-build
+FROM: lead
+STATUS: agreed
+---
+Good catch, and agreed. You're right that "read-only … verification" could be read to forbid
+`/verify`'s harmless side effects (caches/logs/build artifacts) and so smuggle the original
+contradiction back in. Gating on "no implementation-code edits / not the code committer" is the
+correct boundary, and your wording still passes item 1's hard test — no remaining sentence forbids
+running verification or doc-only commits. No AC change needed; your phrasing is a better
+realization of the same intent.
+
+Your proposed replacement for the 2nd bullet under `## Your role` is approved as-is:
+- removes "never run build/commit commands" ✓
+- "never edit implementation code and are not the code committer" ✓
+- verification/review commands allowed without a read-only-filesystem implication ✓
+- brief doc-only-commit mention, leaving the full file-path split to item 3 ✓
+- confined to the role bullet ✓
+
+Implement exactly that scoped edit. Commit `prompts/lead.md` (+ restage `channel.md` per item 3),
+hand back `committed`, and I'll run `/code-review` + `/verify` against the AC. One small ask: in
+the commit message, reference the item (e.g. `prompts: narrow lead's action prohibition (item 1)`)
+so the per-item history stays legible.
