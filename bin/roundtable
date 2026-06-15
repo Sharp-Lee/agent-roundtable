@@ -111,17 +111,73 @@ cmd_stop() {
   tmux kill-session -t "$SESSION" 2>/dev/null && echo "stopped '$SESSION'" || echo "no session '$SESSION'"
 }
 
+# Verify the relay mechanism end-to-end with throwaway tmux + dummy panes
+# (no real CLIs needed). Asserts: handoff reaches channel.md, and the nudge
+# keystrokes are delivered to the target pane.
+cmd_selftest() {
+  command -v tmux >/dev/null 2>&1 || die "tmux is required"
+  command -v python3 >/dev/null 2>&1 || die "python3 is required"
+
+  local proj sess rt got relay_pid rc=0
+  proj="$(mktemp -d)"
+  sess="rt_selftest_$$"
+  rt="$proj/.roundtable"
+  got="$proj/impl_got.txt"
+
+  cmd_init "$proj" >/dev/null
+
+  tmux kill-session -t "$sess" 2>/dev/null || true
+  tmux new-session -d -s "$sess" -x 200 -y 50
+  tmux split-window -h -t "$sess:0"
+  # impl pane (0.1) captures whatever is typed into it
+  tmux send-keys -t "$sess:0.1" -l "cat > '$got'"; tmux send-keys -t "$sess:0.1" Enter
+
+  ROUNDTABLE_DIR="$rt" LEAD_PANE="$sess:0.0" IMPL_PANE="$sess:0.1" POLL_SECONDS=0.3 \
+    python3 "$TOOL_ROOT/bin/relay.py" >/dev/null 2>&1 &
+  relay_pid=$!
+  sleep 1
+  printf 'PHASE: 0\nFROM: lead\nSTATUS: needs-reply\n---\nselftest ping\n' > "$rt/to-impl.md"
+  sleep 1.5
+  kill "$relay_pid" 2>/dev/null || true
+  wait "$relay_pid" 2>/dev/null || true   # reap quietly (suppress job-control notice)
+  tmux send-keys -t "$sess:0.1" C-d 2>/dev/null || true
+  sleep 0.3
+
+  echo "roundtable selftest:"
+  if grep -q "selftest ping" "$rt/channel.md" 2>/dev/null; then
+    echo "  [PASS] handoff appended to channel.md (transcript works)"
+  else
+    echo "  [FAIL] message did not reach channel.md"; rc=1
+  fi
+  if grep -q "New handoff in .roundtable/to-impl.md" "$got" 2>/dev/null; then
+    echo "  [PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)"
+  else
+    echo "  [FAIL] impl pane did not receive the nudge"; rc=1
+  fi
+
+  tmux kill-session -t "$sess" 2>/dev/null || true
+  rm -rf "$proj"
+  if [ "$rc" -eq 0 ]; then
+    echo "  => relay mechanism OK on this machine."
+  else
+    echo "  => something is off; check tmux / python3."
+  fi
+  return "$rc"
+}
+
 main() {
   local sub="${1:-}"; shift || true
   case "$sub" in
-    init)  cmd_init  "$@" ;;
-    start) cmd_start "$@" ;;
-    stop)  cmd_stop  "$@" ;;
+    init)     cmd_init     "$@" ;;
+    start)    cmd_start    "$@" ;;
+    stop)     cmd_stop     "$@" ;;
+    selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
   init  [dir]   scaffold .roundtable/ (default: current directory)
   start [dir]   launch tmux session (lead | impl | relay) and attach
   stop          kill the tmux session
+  selftest      verify the relay works on this machine (no real CLIs needed)
 EOF
        exit 1 ;;
   esac
