@@ -21,6 +21,9 @@
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
 #   RT_LAYOUT  (default: workbench)  workbench = 4 panes; classic = old 2 panes + relay window
 #   RT_MOUSE   (default: 1)        enable tmux mouse mode for the session (0 = leave user's config alone)
+#   RT_KEYS    (default: 1)        install/use popup keybindings for this session (0 = no-op in session)
+#   RT_TIPS_KEY (default: g)       tmux prefix key for the roundtable tips popup
+#   RT_FILE_KEY (default: e)       tmux prefix key for the project file-view popup
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 set -euo pipefail
@@ -33,6 +36,9 @@ CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 RT_LAYOUT="${RT_LAYOUT:-workbench}"
 RT_MOUSE="${RT_MOUSE:-1}"
+RT_KEYS="${RT_KEYS:-1}"
+RT_TIPS_KEY="${RT_TIPS_KEY:-g}"
+RT_FILE_KEY="${RT_FILE_KEY:-e}"
 # Auto-kickoff: send each pane its operating-contract prompt once its CLI looks settled.
 # Set AUTO_KICKOFF=0 to keep the old manual paste. KICKOFF_TIMEOUT caps the per-pane wait.
 AUTO_KICKOFF="${AUTO_KICKOFF:-1}"
@@ -120,11 +126,166 @@ _relay_command() {
     "$(_shell_quote "[relay stopped] press enter to close")"
 }
 
+_tmux_supports_display_popup() {
+  tmux list-commands 2>/dev/null | awk '$1 == "display-popup" { found = 1 } END { exit !found }'
+}
+
+_popup_binding_action() {
+  local existing="${1:-}" sentinel="$2"
+  if [ -z "$existing" ]; then
+    printf 'bind\n'
+  elif [[ "$existing" == *"$sentinel"* ]]; then
+    printf 'keep\n'
+  else
+    printf 'skip\n'
+  fi
+}
+
+_install_popup_binding() {
+  local key="$1" kind="$2" sentinel="rt-popup:$2" key_env existing action command
+  case "$kind" in
+    tips) key_env="RT_TIPS_KEY" ;;
+    file) key_env="RT_FILE_KEY" ;;
+    *) key_env="RT_KEYS" ;;
+  esac
+  existing="$(tmux list-keys -T prefix "$key" 2>/dev/null || true)"
+  action="$(_popup_binding_action "$existing" "$sentinel")"
+  case "$action" in
+    keep)
+      return 0
+      ;;
+    skip)
+      echo "roundtable: warning: prefix+$key is already bound; not overriding it (set $key_env to another key or RT_KEYS=0)" >&2
+      return 0
+      ;;
+  esac
+
+  command="RT_POPUP_SENTINEL=$sentinel $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup $kind"
+  if ! tmux bind-key -T prefix "$key" display-popup -E -w 80% -h 80% "$command"; then
+    echo "roundtable: warning: could not bind prefix+$key for roundtable $kind popup" >&2
+  fi
+}
+
+_install_popup_bindings() {
+  local tips_key="$1" file_key="$2"
+  [ -n "$tips_key" ] || { echo "roundtable: warning: RT_TIPS_KEY is empty; popup keys not installed" >&2; return 0; }
+  [ -n "$file_key" ] || { echo "roundtable: warning: RT_FILE_KEY is empty; popup keys not installed" >&2; return 0; }
+
+  if ! _tmux_supports_display_popup; then
+    echo "roundtable: display-popup unsupported by this tmux; popup keys not installed" >&2
+    return 0
+  fi
+
+  _install_popup_binding "$tips_key" tips
+  _install_popup_binding "$file_key" file
+}
+
 _mouse_banner_text() {
   local mouse_enabled="$1"
   if [ "$mouse_enabled" -eq 1 ]; then
     printf '  Mouse is on: wheel/click/drag use tmux; hold Shift/Option for native selection (terminal-dependent). Prior behavior: RT_LAYOUT=classic RT_MOUSE=0 roundtable start\n'
   fi
+}
+
+_popup_option() {
+  local name="$1"
+  if [ -n "${TMUX_PANE:-}" ]; then
+    tmux display-message -p -t "$TMUX_PANE" "#{@$name}" 2>/dev/null && return 0
+  fi
+  tmux display-message -p "#{@$name}" 2>/dev/null || true
+}
+
+_page_or_read() {
+  if command -v less >/dev/null 2>&1; then
+    less -R
+  else
+    cat
+    printf '\nPress Enter to close...'
+    read -r _ </dev/tty 2>/dev/null || true
+  fi
+}
+
+_popup_tips_text() {
+  local dir="$1" tips_key="$2" file_key="$3"
+  cat <<EOF
+roundtable tips
+
+Project:
+  $dir
+
+Popup keys:
+  prefix+$tips_key  tips
+  prefix+$file_key  file view
+
+Commands:
+  rt init [dir]          scaffold .roundtable/
+  rt start [dir]         launch the workbench
+  rt stop [dir]          stop this project's session
+  rt kickoff [lead|impl] re-send kickoff prompts
+  rt list                list running roundtable sessions
+  rt selftest            verify the relay mechanism
+
+Environment:
+  RT_LAYOUT=workbench|classic
+  RT_MOUSE=1|0
+  RT_KEYS=1|0
+  RT_TIPS_KEY=$tips_key
+  RT_FILE_KEY=$file_key
+  AUTO_KICKOFF=1|0
+  KICKOFF_TIMEOUT=30
+  CLAUDE_CMD=claude
+  CODEX_CMD=codex
+  SESSION=<name>
+
+Reminders:
+  Detach from tmux: prefix+d
+  Relay stopped or killed: rt stop && rt start
+  Kickoff mis-fired: rt kickoff [lead|impl]
+
+Press q to close when shown in less.
+EOF
+}
+
+cmd_popup() {
+  local kind="${1:-}"
+  case "$kind" in tips|file) ;; *) die "usage: roundtable _popup tips|file" ;; esac
+
+  local dir keys tips_key file_key
+  dir="$(_popup_option roundtable_dir)"
+  keys="$(_popup_option roundtable_keys)"
+  if [ -z "$dir" ] || [ "$keys" != "1" ]; then
+    echo "roundtable: popup inactive here (not a roundtable session, or RT_KEYS=0 for this session)"
+    return 0
+  fi
+  tips_key="$(_popup_option roundtable_tips_key)"
+  file_key="$(_popup_option roundtable_file_key)"
+  tips_key="${tips_key:-g}"
+  file_key="${file_key:-e}"
+
+  case "$kind" in
+    tips)
+      _popup_tips_text "$dir" "$tips_key" "$file_key" | _page_or_read
+      ;;
+    file)
+      if ! cd "$dir"; then
+        echo "roundtable: project directory is unavailable: $dir"
+        printf '\nPress Enter to close...'
+        read -r _ || true
+        return 0
+      fi
+      if command -v yazi >/dev/null 2>&1; then
+        exec yazi .
+      elif command -v lf >/dev/null 2>&1; then
+        exec lf .
+      elif command -v ranger >/dev/null 2>&1; then
+        exec ranger .
+      elif command -v tree >/dev/null 2>&1; then
+        tree . | _page_or_read
+      else
+        ls -R . | _page_or_read
+      fi
+      ;;
+  esac
 }
 
 # Single source of truth for the kickoff prompt. role = lead | impl.
@@ -199,7 +360,10 @@ cmd_start() {
     die "session '$sess' (this project) already exists -- attach with 'tmux attach -t $sess' or 'roundtable stop' first"
   fi
 
-  local session_created=0 mouse_enabled=0
+  local session_created=0 mouse_enabled=0 keys_enabled=1
+  if [ "$RT_KEYS" = "0" ]; then
+    keys_enabled=0
+  fi
   start_fail() {
     local message="$1"
     echo "roundtable: $message" >&2
@@ -254,6 +418,12 @@ LEAD_PANE=$lead_pane
 IMPL_PANE=$impl_pane
 EOF
   tmux set-option -t "$sess" @roundtable_dir "$target" || start_fail "could not set @roundtable_dir"
+  tmux set-option -t "$sess" @roundtable_keys "$keys_enabled" || start_fail "could not set @roundtable_keys"
+  tmux set-option -t "$sess" @roundtable_tips_key "$RT_TIPS_KEY" || start_fail "could not set @roundtable_tips_key"
+  tmux set-option -t "$sess" @roundtable_file_key "$RT_FILE_KEY" || start_fail "could not set @roundtable_file_key"
+  if [ "$keys_enabled" -eq 1 ]; then
+    _install_popup_bindings "$RT_TIPS_KEY" "$RT_FILE_KEY"
+  fi
   if [ "$RT_MOUSE" != "0" ]; then
     if tmux set-option -t "$sess" mouse on 2>/dev/null; then
       mouse_enabled=1
@@ -481,6 +651,7 @@ main() {
     stop)     cmd_stop     "$@" ;;
     kickoff)  cmd_kickoff  "$@" ;;
     list)     cmd_list     "$@" ;;
+    _popup)   cmd_popup    "$@" ;;
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
