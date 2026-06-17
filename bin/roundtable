@@ -87,11 +87,24 @@ _wait_pane_ready() {
 _send_prompt() {
   local pane="$1" text="$2" sess="${3:-}"
   if [ -n "$sess" ]; then
-    _require_pane_in_session "$sess" "$pane"
+    _pane_belongs_to_session "$sess" "$pane" || return 1
   fi
   tmux send-keys -t "$pane" -l "$text" || return 1
   sleep 0.2
   tmux send-keys -t "$pane" Enter || return 1
+}
+
+_new_pane() {
+  local label="$1" id
+  shift
+  if ! id="$(tmux "$@" -P -F '#{pane_id}')"; then
+    return 1
+  fi
+  if [ -z "$id" ]; then
+    echo "roundtable: tmux did not report the $label id" >&2
+    return 1
+  fi
+  printf '%s\n' "$id"
 }
 
 _relay_command() {
@@ -200,34 +213,22 @@ cmd_start() {
   fi
 
   local lead_pane impl_pane command_pane="" relay_pane
-  if ! lead_pane="$(tmux new-session -d -P -F '#{pane_id}' -s "$sess" -c "$target" -x "$cols" -y "$lines")"; then
-    start_fail "could not create tmux session '$sess'"
-  fi
+  lead_pane="$(_new_pane "lead pane" new-session -d -s "$sess" -c "$target" -x "$cols" -y "$lines")" \
+    || start_fail "could not create tmux session '$sess'"
   session_created=1
-  [ -n "$lead_pane" ] || start_fail "tmux did not report the lead pane id"
 
   if [ "$layout" = "workbench" ]; then
-    if ! command_pane="$(tmux split-window -v -l 33% -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
-      start_fail "could not create command pane"
-    fi
-    [ -n "$command_pane" ] || start_fail "tmux did not report the command pane id"
-    if ! impl_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
-      start_fail "could not create impl pane"
-    fi
-    [ -n "$impl_pane" ] || start_fail "tmux did not report the impl pane id"
-    if ! relay_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$command_pane" -c "$target")"; then
-      start_fail "could not create relay pane"
-    fi
-    [ -n "$relay_pane" ] || start_fail "tmux did not report the relay pane id"
+    command_pane="$(_new_pane "command pane" split-window -v -l 33% -t "$lead_pane" -c "$target")" \
+      || start_fail "could not create command pane"
+    impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane" -c "$target")" \
+      || start_fail "could not create impl pane"
+    relay_pane="$(_new_pane "relay pane" split-window -h -t "$command_pane" -c "$target")" \
+      || start_fail "could not create relay pane"
   else
-    if ! impl_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
-      start_fail "could not create impl pane"
-    fi
-    [ -n "$impl_pane" ] || start_fail "tmux did not report the impl pane id"
-    if ! relay_pane="$(tmux new-window -P -F '#{pane_id}' -t "$sess" -n relay -c "$target")"; then
-      start_fail "could not create relay window"
-    fi
-    [ -n "$relay_pane" ] || start_fail "tmux did not report the relay pane id"
+    impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane" -c "$target")" \
+      || start_fail "could not create impl pane"
+    relay_pane="$(_new_pane "relay pane" new-window -t "$sess" -n relay -c "$target")" \
+      || start_fail "could not create relay window"
   fi
 
   tmux select-pane -t "$lead_pane" -T lead || start_fail "could not title lead pane"
@@ -242,11 +243,7 @@ cmd_start() {
 SESSION=$sess
 LEAD_PANE=$lead_pane
 IMPL_PANE=$impl_pane
-RELAY_PANE=$relay_pane
 EOF
-  if [ -n "$command_pane" ]; then
-    printf 'COMMAND_PANE=%s\n' "$command_pane" >> "$rt/panes.env"
-  fi
   tmux set-option -t "$sess" @roundtable_dir "$target" || start_fail "could not set @roundtable_dir"
 
   # Start the relay watcher only after panes.env has the captured pane ids.
@@ -388,10 +385,12 @@ cmd_kickoff() {
   [ -n "$impl_pane" ] || die "panes.env is missing IMPL_PANE -- restart the session"
   tmux has-session -t "$sess" 2>/dev/null || die "session '$sess' is not running -- 'roundtable start' first"
   if [ "$only" = "lead" ] || [ "$only" = "both" ]; then
-    _send_prompt "$lead_pane" "$(_kickoff_text lead)" "$sess"; echo "re-sent kickoff to lead ($lead_pane)"
+    _send_prompt "$lead_pane" "$(_kickoff_text lead)" "$sess" || die "pane '$lead_pane' is stale or outside session '$sess' -- restart the session"
+    echo "re-sent kickoff to lead ($lead_pane)"
   fi
   if [ "$only" = "impl" ] || [ "$only" = "both" ]; then
-    _send_prompt "$impl_pane" "$(_kickoff_text impl)" "$sess"; echo "re-sent kickoff to impl ($impl_pane)"
+    _send_prompt "$impl_pane" "$(_kickoff_text impl)" "$sess" || die "pane '$impl_pane' is stale or outside session '$sess' -- restart the session"
+    echo "re-sent kickoff to impl ($impl_pane)"
   fi
 }
 

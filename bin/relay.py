@@ -47,7 +47,15 @@ def _now() -> str:
 def _pane_belongs_to_session(session: str, pane: str) -> bool:
     if not session or not pane:
         return False
-    if subprocess.run(["tmux", "has-session", "-t", session], check=False).returncode != 0:
+    if (
+        subprocess.run(
+            ["tmux", "has-session", "-t", session],
+            check=False,
+            capture_output=True,
+            text=True,
+        ).returncode
+        != 0
+    ):
         return False
     result = subprocess.run(
         ["tmux", "display-message", "-p", "-t", pane, "#{session_name}"],
