@@ -78,6 +78,13 @@ their normal main input prompt. First-run login, model-selection, trust-folder, 
 other setup prompts can also look visually "settled"; complete those flows first, or run
 `AUTO_KICKOFF=0 roundtable start` and paste the kickoff manually.
 
+If auto-send mis-fires (e.g. it lands in a pane that wasn't fully ready), there are two fallbacks:
+
+- once the CLI is fully up, run `roundtable kickoff` to **re-send** to both panes (or
+  `roundtable kickoff lead|impl` for just one) — easier than re-pasting;
+- or **copy/paste** from the files `start` writes: `.roundtable/kickoff-lead.txt` /
+  `kickoff-impl.txt` (`cat` them from inside tmux — readable even after you've attached).
+
 The kickoff is also **state-aware**: it tells each pane to re-read `requirements.md`, `channel.md`
 and `decisions.md`, so re-starting a project mid-flight resumes from the last handoff (on a fresh
 project those artifacts are empty templates, so it just waits for your idea). If you only detached
@@ -162,6 +169,7 @@ separate project.
 | `.roundtable/decisions.md` | resolved disagreements + rationale | yes |
 | `.roundtable/prompts/` | the role contracts the agents read | yes |
 | `.roundtable/to-lead.md`, `to-impl.md` | transient mailboxes | no (gitignored) |
+| `.roundtable/kickoff-lead.txt`, `kickoff-impl.txt` | kickoff text saved at start (manual fallback) | no (gitignored) |
 
 ## Env overrides
 

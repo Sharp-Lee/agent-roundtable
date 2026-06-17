@@ -11,6 +11,7 @@
 #   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
 #   roundtable start  [dir]   Launch a per-project tmux session (lead | impl | relay) and attach
 #   roundtable stop   [dir]   Kill this project's session (default: cwd)
+#   roundtable kickoff [lead|impl]  Re-send the kickoff prompt to a running session (default: both)
 #   roundtable list           List running roundtable sessions
 #   roundtable selftest       Verify the relay works on this machine (no real CLIs needed)
 #
@@ -63,6 +64,19 @@ _send_prompt() {
   tmux send-keys -t "$pane" -l "$text"; sleep 0.2; tmux send-keys -t "$pane" Enter
 }
 
+# Single source of truth for the kickoff prompt. role = lead | impl.
+# State-aware: also re-read the durable artifacts so a fresh pane starts clean
+# (artifacts are empty templates) or resumes an in-progress project.
+_kickoff_text() {
+  local role="$1" contract tail
+  if [ "$role" = "lead" ]; then
+    contract="lead.md";  tail="otherwise acknowledge and wait for my idea."
+  else
+    contract="impl.md";  tail="otherwise acknowledge and wait."
+  fi
+  printf 'Read .roundtable/prompts/protocol.md then .roundtable/prompts/%s -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; %s' "$contract" "$tail"
+}
+
 # Stable, unique-per-absolute-path, readable tmux session name for a project dir.
 _session_for() {
   local dir="$1" base slug hash
@@ -95,6 +109,8 @@ cmd_init() {
 to-lead.md
 to-impl.md
 panes.env
+kickoff-lead.txt
+kickoff-impl.txt
 *.lock
 EOF
 
@@ -138,10 +154,14 @@ EOF
   tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD"; tmux send-keys -t "$lead_pane" Enter
   tmux send-keys -t "$impl_pane" -l "$CODEX_CMD";  tmux send-keys -t "$impl_pane" Enter
 
-  # State-aware kickoff: also re-read the durable artifacts so a fresh pane can either start
-  # clean (artifacts are empty templates) or resume an in-progress project from the last handoff.
-  local lead_kick="Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; otherwise acknowledge and wait for my idea."
-  local impl_kick="Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; otherwise acknowledge and wait."
+  local lead_kick impl_kick
+  lead_kick="$(_kickoff_text lead)"
+  impl_kick="$(_kickoff_text impl)"
+  # Always drop the prompts to files so they can be re-pasted from inside tmux even
+  # when auto-send mis-fires (a send can "succeed" yet land in a half-ready pane).
+  printf '%s\n' "$lead_kick" > "$rt/kickoff-lead.txt"
+  printf '%s\n' "$impl_kick" > "$rt/kickoff-impl.txt"
+  local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [lead|impl]', or copy from .roundtable/kickoff-{lead,impl}.txt"
 
   if [ "$AUTO_KICKOFF" = "1" ]; then
     local lead_sent=0 impl_sent=0
@@ -171,7 +191,7 @@ EOF
 Kickoff sent to both panes.
   LEFT pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
 
-If either pane was on a setup prompt instead of its main input prompt, restart with AUTO_KICKOFF=0.
+$fallback
 Now just give your raw idea to the LEFT (lead) pane. The relay takes over from there.
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
@@ -212,6 +232,7 @@ One-time kickoff:
         $impl_kick
   3. Then give your raw idea to the LEFT (lead) pane. The relay takes over from there.
 
+$fallback
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
   fi
@@ -230,6 +251,28 @@ cmd_stop() {
   fi
   [ -n "$sess" ] || sess="$(_session_for "$target")"
   tmux kill-session -t "$sess" 2>/dev/null && echo "stopped '$sess'" || echo "no session '$sess'"
+}
+
+# Re-send the kickoff prompt to a running session's panes. Use when auto-kickoff
+# mis-fired (landed in a half-ready pane) -- run it once the CLI is fully up.
+#   roundtable kickoff            both panes
+#   roundtable kickoff lead|impl  just that pane
+cmd_kickoff() {
+  local only="${1:-both}"
+  case "$only" in lead|impl|both) ;; *) die "usage: roundtable kickoff [lead|impl]" ;; esac
+  local envfile="$PWD/.roundtable/panes.env"
+  [ -f "$envfile" ] || die "no session recorded for this project -- run 'roundtable start' first (from the project dir)"
+  local sess lead_pane impl_pane
+  sess="$(sed -n 's/^SESSION=//p' "$envfile")"
+  lead_pane="$(sed -n 's/^LEAD_PANE=//p' "$envfile")"
+  impl_pane="$(sed -n 's/^IMPL_PANE=//p' "$envfile")"
+  tmux has-session -t "$sess" 2>/dev/null || die "session '$sess' is not running -- 'roundtable start' first"
+  if [ "$only" = "lead" ] || [ "$only" = "both" ]; then
+    _send_prompt "$lead_pane" "$(_kickoff_text lead)"; echo "re-sent kickoff to lead ($lead_pane)"
+  fi
+  if [ "$only" = "impl" ] || [ "$only" = "both" ]; then
+    _send_prompt "$impl_pane" "$(_kickoff_text impl)"; echo "re-sent kickoff to impl ($impl_pane)"
+  fi
 }
 
 cmd_list() {
@@ -298,15 +341,17 @@ main() {
     init)     cmd_init     "$@" ;;
     start)    cmd_start    "$@" ;;
     stop)     cmd_stop     "$@" ;;
+    kickoff)  cmd_kickoff  "$@" ;;
     list)     cmd_list     "$@" ;;
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
-  init  [dir]   scaffold .roundtable/ (default: current directory)
-  start [dir]   launch a per-project tmux session (lead | impl | relay) and attach
-  stop  [dir]   kill this project's session (default: current directory)
-  list          list running roundtable sessions
-  selftest      verify the relay works on this machine (no real CLIs needed)
+  init  [dir]         scaffold .roundtable/ (default: current directory)
+  start [dir]         launch a per-project tmux session (lead | impl | relay) and attach
+  stop  [dir]         kill this project's session (default: current directory)
+  kickoff [lead|impl] re-send the kickoff prompt to a running session (default: both)
+  list                list running roundtable sessions
+  selftest            verify the relay works on this machine (no real CLIs needed)
 
 Each project gets its own session (roundtable-<name>-<hash>), so multiple
 roundtables run concurrently. Override the name with SESSION=... if needed.

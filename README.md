@@ -74,6 +74,13 @@ roundtable start           # 打开 tmux：左=lead | 右=impl | 窗口 'relay'
 信任目录、更新提示等设置界面也可能在视觉上"看起来稳定"；请先处理完这些流程，或用
 `AUTO_KICKOFF=0 roundtable start` 然后手动粘贴 kickoff。
 
+如果自动发送没落干净（例如发进了尚未完全就绪的 pane），有两层兜底：
+
+- 等 CLI 完全起来后运行 `roundtable kickoff` **重发**到两个 pane（或 `roundtable kickoff lead|impl`
+  只发其中一个）——比手动粘贴更省事；
+- 或直接从 start 时落盘的 `.roundtable/kickoff-lead.txt` / `kickoff-impl.txt` **复制粘贴**（在 tmux
+  里 `cat` 这两个文件即可，attach 之后也读得到）。
+
 kickoff 同时是**状态自适应**的：它会让每个 pane 重读 `requirements.md`、`channel.md` 和
 `decisions.md`，因此中途重启一个项目时会从上次交接处续上（全新项目里这些产物是空模板，于是它
 只会等你给想法）。如果你只是从一个仍在运行的会话 detach 了，则**无需 kickoff**——直接
@@ -153,6 +160,7 @@ cp templates/{requirements,channel,decisions}.md .roundtable/
 | `.roundtable/decisions.md` | 已解决的分歧 + 理由 | 是 |
 | `.roundtable/prompts/` | agent 读取的角色契约 | 是 |
 | `.roundtable/to-lead.md`、`to-impl.md` | 临时 mailbox | 否（已 gitignore） |
+| `.roundtable/kickoff-lead.txt`、`kickoff-impl.txt` | start 落盘的 kickoff 文本（手动兜底） | 否（已 gitignore） |
 
 ## 环境变量覆盖
 
