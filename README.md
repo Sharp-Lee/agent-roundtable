@@ -67,9 +67,14 @@ roundtable start           # opens tmux: left=lead | right=impl | window 'relay'
 
 `rt` is a built-in shorthand for `roundtable` (e.g. `rt start`, `rt list`, `rt stop`).
 
-On first start, the **kickoff is automatic**: once each pane's CLI is ready, `roundtable start`
-sends it the matching operating contract (`protocol.md` + `lead.md`/`impl.md`). You only need to
-give your raw idea to the **left (lead)** pane — the relay takes over from there.
+On first start, the **kickoff is automatic**: once each pane's CLI output looks settled,
+`roundtable start` sends it the matching operating contract (`protocol.md` + `lead.md`/`impl.md`).
+You only need to give your raw idea to the **left (lead)** pane — the relay takes over from there.
+
+Automatic kickoff assumes both CLIs are already authenticated and configured, and that they land on
+their normal main input prompt. First-run login, model-selection, trust-folder, update notices, or
+other setup prompts can also look visually "settled"; complete those flows first, or run
+`AUTO_KICKOFF=0 roundtable start` and paste the kickoff manually.
 
 The kickoff is also **state-aware**: it tells each pane to re-read `requirements.md`, `channel.md`
 and `decisions.md`, so re-starting a project mid-flight resumes from the last handoff (on a fresh
@@ -108,8 +113,8 @@ roundtables at once. `roundtable list` shows the running ones.
 | `CODEX_CMD` | `codex` | command to start the impl CLI |
 | `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
 | `POLL_SECONDS` | `1.0` | relay poll interval |
-| `AUTO_KICKOFF` | `1` | auto-send each pane its operating contract once its CLI is ready (`0` = manual paste) |
-| `KICKOFF_TIMEOUT` | `30` | max seconds to wait for a pane to be ready before falling back to manual |
+| `AUTO_KICKOFF` | `1` | auto-send each pane its operating contract once its CLI output looks settled (`0` = manual paste) |
+| `KICKOFF_TIMEOUT` | `30` | max seconds to wait for a pane to settle before falling back to manual |
 
 ## Limitations (known, by design)
 
@@ -118,3 +123,6 @@ roundtables at once. `roundtable list` shows the running ones.
   mid-turn, keystrokes can interleave — let each turn finish.
 - It does not auto-resume the models' internal conversation across a full restart. Recovery is by
   re-reading the on-disk artifacts (which is more robust than fragile session resume).
+- Automatic kickoff uses `tmux capture-pane` output stability as a startup convenience, not a
+  protocol completion signal. Animated idle screens may time out and fall back to manual kickoff;
+  static first-run setup prompts may require `AUTO_KICKOFF=0`.
