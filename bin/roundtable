@@ -131,11 +131,13 @@ _tmux_supports_display_popup() {
 }
 
 _popup_binding_action() {
-  local existing="${1:-}" sentinel="$2"
+  local existing="${1:-}" sentinel="$2" command="$3"
   if [ -z "$existing" ]; then
     printf 'bind\n'
-  elif [[ "$existing" == *"$sentinel"* ]]; then
+  elif [[ "$existing" == *"$sentinel"* && "$existing" == *"$command"* ]]; then
     printf 'keep\n'
+  elif [[ "$existing" == *"$sentinel"* ]]; then
+    printf 'bind\n'
   else
     printf 'skip\n'
   fi
@@ -146,10 +148,10 @@ _install_popup_binding() {
   case "$kind" in
     tips) key_env="RT_TIPS_KEY" ;;
     file) key_env="RT_FILE_KEY" ;;
-    *) key_env="RT_KEYS" ;;
   esac
+  command="RT_POPUP_SENTINEL=$sentinel $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup $kind"
   existing="$(tmux list-keys -T prefix "$key" 2>/dev/null || true)"
-  action="$(_popup_binding_action "$existing" "$sentinel")"
+  action="$(_popup_binding_action "$existing" "$sentinel" "$command")"
   case "$action" in
     keep)
       return 0
@@ -160,7 +162,6 @@ _install_popup_binding() {
       ;;
   esac
 
-  command="RT_POPUP_SENTINEL=$sentinel $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup $kind"
   if ! tmux bind-key -T prefix "$key" display-popup -E -w 80% -h 80% "$command"; then
     echo "roundtable: warning: could not bind prefix+$key for roundtable $kind popup" >&2
   fi
@@ -173,6 +174,11 @@ _install_popup_bindings() {
 
   if ! _tmux_supports_display_popup; then
     echo "roundtable: display-popup unsupported by this tmux; popup keys not installed" >&2
+    return 0
+  fi
+
+  if [ "$tips_key" = "$file_key" ]; then
+    echo "roundtable: warning: RT_TIPS_KEY and RT_FILE_KEY both use prefix+$tips_key; popup keys not installed (choose distinct keys)" >&2
     return 0
   fi
 
@@ -197,7 +203,10 @@ _popup_option() {
 
 _page_or_read() {
   if command -v less >/dev/null 2>&1; then
-    less -R
+    {
+      cat
+      printf '\nPress q to close.\n'
+    } | less -R
   else
     cat
     printf '\nPress Enter to close...'
@@ -241,8 +250,6 @@ Reminders:
   Detach from tmux: prefix+d
   Relay stopped or killed: rt stop && rt start
   Kickoff mis-fired: rt kickoff [lead|impl]
-
-Press q to close when shown in less.
 EOF
 }
 
