@@ -9,11 +9,11 @@
 #
 # Subcommands (also available as `rt`):
 #   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
-#   roundtable start  [dir]   Launch a per-project tmux session (lead | impl | relay) and attach
+#   roundtable start  [dir]   Launch the per-project tmux workbench and attach
 #   roundtable stop   [dir]   Kill this project's session (default: cwd)
 #   roundtable kickoff [lead|impl]  Re-send the kickoff prompt to a running session (default: both)
 #   roundtable list           List running roundtable sessions
-#   roundtable selftest       Verify the relay works on this machine (no real CLIs needed)
+#   roundtable selftest       Verify relay/layout/key checks on this machine (no real CLIs needed)
 #
 # Env overrides:
 #   CLAUDE_CMD (default: claude)   command to start the lead CLI
@@ -26,6 +26,11 @@
 #   RT_FILE_KEY (default: e)       tmux prefix key for the project file-view popup
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
+#
+# Default layout: top lead | impl, bottom command shell | relay watcher.
+# Prior behavior: RT_LAYOUT=classic RT_MOUSE=0 roundtable start.
+# Popups: prefix+g tips and prefix+e file view; use RT_KEYS=0 or RT_*_KEY overrides.
+# If the visible relay pane is killed, recover with roundtable stop && roundtable start.
 set -euo pipefail
 
 TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -130,6 +135,23 @@ _tmux_supports_display_popup() {
   tmux list-commands 2>/dev/null | awk '$1 == "display-popup" { found = 1 } END { exit !found }'
 }
 
+_popup_install_plan() {
+  local supported="$1" keys_enabled="$2" tips_key="${3:-}" file_key="${4:-}"
+  if [ "$keys_enabled" != "1" ]; then
+    printf 'skip-keys\n'
+  elif [ -z "$tips_key" ]; then
+    printf 'skip-missing-tips\n'
+  elif [ -z "$file_key" ]; then
+    printf 'skip-missing-file\n'
+  elif [ "$supported" != "1" ]; then
+    printf 'skip-unsupported\n'
+  elif [ "$tips_key" = "$file_key" ]; then
+    printf 'skip-samekey\n'
+  else
+    printf 'install\n'
+  fi
+}
+
 _popup_binding_action() {
   local existing="${1:-}" sentinel="$2" command="$3"
   if [ -z "$existing" ]; then
@@ -168,19 +190,33 @@ _install_popup_binding() {
 }
 
 _install_popup_bindings() {
-  local tips_key="$1" file_key="$2"
-  [ -n "$tips_key" ] || { echo "roundtable: warning: RT_TIPS_KEY is empty; popup keys not installed" >&2; return 0; }
-  [ -n "$file_key" ] || { echo "roundtable: warning: RT_FILE_KEY is empty; popup keys not installed" >&2; return 0; }
-
-  if ! _tmux_supports_display_popup; then
-    echo "roundtable: display-popup unsupported by this tmux; popup keys not installed" >&2
-    return 0
+  local tips_key="$1" file_key="$2" supported=0 plan
+  if _tmux_supports_display_popup; then
+    supported=1
   fi
-
-  if [ "$tips_key" = "$file_key" ]; then
-    echo "roundtable: warning: RT_TIPS_KEY and RT_FILE_KEY both use prefix+$tips_key; popup keys not installed (choose distinct keys)" >&2
-    return 0
-  fi
+  plan="$(_popup_install_plan "$supported" 1 "$tips_key" "$file_key")"
+  case "$plan" in
+    install) ;;
+    skip-missing-tips)
+      echo "roundtable: warning: RT_TIPS_KEY is empty; popup keys not installed" >&2
+      return 0
+      ;;
+    skip-missing-file)
+      echo "roundtable: warning: RT_FILE_KEY is empty; popup keys not installed" >&2
+      return 0
+      ;;
+    skip-unsupported)
+      echo "roundtable: display-popup unsupported by this tmux; popup keys not installed" >&2
+      return 0
+      ;;
+    skip-samekey)
+      echo "roundtable: warning: RT_TIPS_KEY and RT_FILE_KEY both use prefix+$tips_key; popup keys not installed (choose distinct keys)" >&2
+      return 0
+      ;;
+    skip-keys)
+      return 0
+      ;;
+  esac
 
   _install_popup_binding "$tips_key" tips
   _install_popup_binding "$file_key" file
@@ -232,7 +268,7 @@ Commands:
   rt stop [dir]          stop this project's session
   rt kickoff [lead|impl] re-send kickoff prompts
   rt list                list running roundtable sessions
-  rt selftest            verify the relay mechanism
+  rt selftest            verify relay/layout/key checks
 
 Environment:
   RT_LAYOUT=workbench|classic
@@ -596,6 +632,33 @@ cmd_list() {
   if [ -n "$rows" ]; then echo "$rows"; else echo "no roundtable sessions running"; fi
 }
 
+_selftest_pass() {
+  echo "  [PASS] $1"
+}
+
+_selftest_fail() {
+  echo "  [FAIL] $1"
+  return 1
+}
+
+_selftest_assert_eq() {
+  local label="$1" expected="$2" actual="$3"
+  if [ "$actual" = "$expected" ]; then
+    _selftest_pass "$label"
+  else
+    echo "  [FAIL] $label (expected '$expected', got '$actual')"
+    return 1
+  fi
+}
+
+_selftest_assert_pane_id() {
+  local label="$1" pane="$2"
+  case "$pane" in
+    %*) _selftest_pass "$label" ;;
+    *) echo "  [FAIL] $label (expected %N pane id, got '$pane')"; return 1 ;;
+  esac
+}
+
 # Verify the relay mechanism end-to-end with throwaway tmux + dummy panes
 # (no real CLIs needed). Asserts: handoff reaches channel.md, and the nudge
 # keystrokes are delivered to the target pane.
@@ -604,20 +667,26 @@ cmd_selftest() {
   command -v python3 >/dev/null 2>&1 || die "python3 is required"
 
   local proj sess rt got relay_pid rc=0
+  local lead_pane impl_pane layout_sess foreign_sess
+  local layout_lead layout_impl layout_command layout_relay foreign_pane
   proj="$(mktemp -d)"
   sess="rt_selftest_$$"
+  layout_sess="${sess}_layout"
+  foreign_sess="${sess}_foreign"
   rt="$proj/.roundtable"
   got="$proj/impl_got.txt"
 
   cmd_init "$proj" >/dev/null
 
   tmux kill-session -t "$sess" 2>/dev/null || true
-  tmux new-session -d -s "$sess" -x 200 -y 50
-  tmux split-window -h -t "$sess:0"
-  # impl pane (0.1) captures whatever is typed into it
-  tmux send-keys -t "$sess:0.1" -l "cat > '$got'"; tmux send-keys -t "$sess:0.1" Enter
+  tmux kill-session -t "$layout_sess" 2>/dev/null || true
+  tmux kill-session -t "$foreign_sess" 2>/dev/null || true
+  lead_pane="$(_new_pane "lead pane" new-session -d -s "$sess" -x 200 -y 50)"
+  impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane")"
+  # impl pane captures whatever is typed into it
+  tmux send-keys -t "$impl_pane" -l "cat > '$got'"; tmux send-keys -t "$impl_pane" Enter
 
-  SESSION="$sess" ROUNDTABLE_DIR="$rt" LEAD_PANE="$sess:0.0" IMPL_PANE="$sess:0.1" POLL_SECONDS=0.3 \
+  SESSION="$sess" ROUNDTABLE_DIR="$rt" LEAD_PANE="$lead_pane" IMPL_PANE="$impl_pane" POLL_SECONDS=0.3 \
     python3 "$TOOL_ROOT/bin/relay.py" >/dev/null 2>&1 &
   relay_pid=$!
   sleep 1
@@ -625,25 +694,95 @@ cmd_selftest() {
   sleep 1.5
   kill "$relay_pid" 2>/dev/null || true
   wait "$relay_pid" 2>/dev/null || true   # reap quietly (suppress job-control notice)
-  tmux send-keys -t "$sess:0.1" C-d 2>/dev/null || true
+  tmux send-keys -t "$impl_pane" C-d 2>/dev/null || true
   sleep 0.3
 
   echo "roundtable selftest:"
+
+  local popup_command popup_existing
+  popup_command="RT_POPUP_SENTINEL=rt-popup:tips $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup tips"
+  popup_existing="bind-key -T prefix g display-popup -E -h \"80%\" -w \"80%\" \"$popup_command\""
+  _selftest_assert_eq "popup install plan installs when supported" "install" "$(_popup_install_plan 1 1 g e)" || rc=1
+  _selftest_assert_eq "popup install plan skips RT_KEYS=0" "skip-keys" "$(_popup_install_plan 1 0 g e)" || rc=1
+  _selftest_assert_eq "popup install plan skips empty tips key" "skip-missing-tips" "$(_popup_install_plan 1 1 "" e)" || rc=1
+  _selftest_assert_eq "popup install plan skips empty file key" "skip-missing-file" "$(_popup_install_plan 1 1 g "")" || rc=1
+  _selftest_assert_eq "popup install plan skips unsupported tmux" "skip-unsupported" "$(_popup_install_plan 0 1 g e)" || rc=1
+  _selftest_assert_eq "popup install plan skips same key" "skip-samekey" "$(_popup_install_plan 1 1 x x)" || rc=1
+  _selftest_assert_eq "popup binding action binds empty key" "bind" "$(_popup_binding_action "" "rt-popup:tips" "$popup_command")" || rc=1
+  _selftest_assert_eq "popup binding action keeps current binding" "keep" "$(_popup_binding_action "$popup_existing" "rt-popup:tips" "$popup_command")" || rc=1
+  _selftest_assert_eq "popup binding action refreshes stale own binding" "bind" "$(_popup_binding_action "RT_POPUP_SENTINEL=rt-popup:tips '/tmp/old/bin/roundtable' _popup tips" "rt-popup:tips" "$popup_command")" || rc=1
+  _selftest_assert_eq "popup binding action skips foreign binding" "skip" "$(_popup_binding_action "bind-key -T prefix g display-message user-binding" "rt-popup:tips" "$popup_command")" || rc=1
+
   if grep -q "selftest ping" "$rt/channel.md" 2>/dev/null; then
-    echo "  [PASS] handoff appended to channel.md (transcript works)"
+    _selftest_pass "handoff appended to channel.md (transcript works)"
   else
     echo "  [FAIL] message did not reach channel.md"; rc=1
   fi
   if grep -q "New handoff in .roundtable/to-impl.md" "$got" 2>/dev/null; then
-    echo "  [PASS] nudge keystrokes delivered to the impl pane (tmux send-keys works)"
+    _selftest_pass "nudge keystrokes delivered to the impl pane (tmux send-keys works)"
   else
     echo "  [FAIL] impl pane did not receive the nudge"; rc=1
   fi
 
+  if layout_lead="$(_new_pane "layout lead pane" new-session -d -s "$layout_sess" -x 200 -y 50)" &&
+    layout_command="$(_new_pane "layout command pane" split-window -v -l 33% -t "$layout_lead")" &&
+    layout_impl="$(_new_pane "layout impl pane" split-window -h -t "$layout_lead")" &&
+    layout_relay="$(_new_pane "layout relay pane" split-window -h -t "$layout_command")"; then
+    tmux select-pane -t "$layout_lead" -T lead
+    tmux select-pane -t "$layout_impl" -T impl
+    tmux select-pane -t "$layout_command" -T command
+    tmux select-pane -t "$layout_relay" -T relay
+    _selftest_assert_pane_id "workbench captures lead %N id" "$layout_lead" || rc=1
+    _selftest_assert_pane_id "workbench captures impl %N id" "$layout_impl" || rc=1
+    _selftest_assert_pane_id "workbench captures command %N id" "$layout_command" || rc=1
+    _selftest_assert_pane_id "workbench captures relay %N id" "$layout_relay" || rc=1
+    _selftest_assert_eq "workbench builds four panes" "4" "$(tmux list-panes -t "$layout_sess" | wc -l | tr -d ' ')" || rc=1
+    _selftest_assert_eq "workbench pane titles" "lead impl command relay" "$(printf '%s %s %s %s' "$(tmux display-message -p -t "$layout_lead" '#{pane_title}')" "$(tmux display-message -p -t "$layout_impl" '#{pane_title}')" "$(tmux display-message -p -t "$layout_command" '#{pane_title}')" "$(tmux display-message -p -t "$layout_relay" '#{pane_title}')")" || rc=1
+
+    foreign_pane="$(_new_pane "foreign pane" new-session -d -s "$foreign_sess" -x 80 -y 24)"
+    if _pane_belongs_to_session "$layout_sess" "$layout_lead"; then
+      _selftest_pass "shell ownership check accepts owned pane"
+    else
+      _selftest_fail "shell ownership check accepts owned pane" || true; rc=1
+    fi
+    if _pane_belongs_to_session "$layout_sess" "$foreign_pane"; then
+      _selftest_fail "shell ownership check rejects foreign pane" || true; rc=1
+    else
+      _selftest_pass "shell ownership check rejects foreign pane"
+    fi
+    if _send_prompt "$foreign_pane" "selftest should not send" "$layout_sess"; then
+      _selftest_fail "send prompt refuses foreign pane" || true; rc=1
+    else
+      _selftest_pass "send prompt refuses foreign pane"
+    fi
+    if python3 - "$TOOL_ROOT/bin/relay.py" "$layout_sess" "$layout_lead" "$foreign_pane" <<'PY'
+import importlib.util
+import sys
+
+path, session, owned, foreign = sys.argv[1:5]
+spec = importlib.util.spec_from_file_location("roundtable_relay", path)
+module = importlib.util.module_from_spec(spec)
+assert spec.loader is not None
+spec.loader.exec_module(module)
+ok = module._pane_belongs_to_session(session, owned) and not module._pane_belongs_to_session(session, foreign)
+raise SystemExit(0 if ok else 1)
+PY
+    then
+      _selftest_pass "relay ownership check rejects foreign pane"
+    else
+      _selftest_fail "relay ownership check rejects foreign pane" || true; rc=1
+    fi
+  else
+    _selftest_fail "workbench mini-build completed" || true
+    rc=1
+  fi
+
   tmux kill-session -t "$sess" 2>/dev/null || true
+  tmux kill-session -t "$layout_sess" 2>/dev/null || true
+  tmux kill-session -t "$foreign_sess" 2>/dev/null || true
   rm -rf "$proj"
   if [ "$rc" -eq 0 ]; then
-    echo "  => relay mechanism OK on this machine."
+    echo "  => roundtable selftest OK on this machine."
   else
     echo "  => something is off; check tmux / python3."
   fi
@@ -663,14 +802,20 @@ main() {
     *) cat >&2 <<EOF
 usage: roundtable <command>
   init  [dir]         scaffold .roundtable/ (default: current directory)
-  start [dir]         launch a per-project tmux session (lead | impl | relay) and attach
+  start [dir]         launch the 4-pane tmux workbench and attach
   stop  [dir]         kill this project's session (default: current directory)
   kickoff [lead|impl] re-send the kickoff prompt to a running session (default: both)
   list                list running roundtable sessions
-  selftest            verify the relay works on this machine (no real CLIs needed)
+  selftest            verify relay/layout/key checks on this machine (no real CLIs needed)
 
 Each project gets its own session (roundtable-<name>-<hash>), so multiple
 roundtables run concurrently. Override the name with SESSION=... if needed.
+
+Default layout: top lead | impl, bottom command shell | relay watcher.
+Popups: prefix+g tips, prefix+e file view. Env: RT_LAYOUT=classic,
+RT_MOUSE=0, RT_KEYS=0, RT_TIPS_KEY=<key>, RT_FILE_KEY=<key>.
+Mouse changes native text selection; prior behavior: RT_LAYOUT=classic RT_MOUSE=0.
+Relay pane killed/stopped? Recover with 'roundtable stop && roundtable start'.
 EOF
        exit 1 ;;
   esac

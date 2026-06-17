@@ -64,10 +64,48 @@ export PATH="$PWD/bin:$PATH"
 
 cd /path/to/your/dev/project
 roundtable init            # scaffolds .roundtable/ (requirements, channel, decisions, prompts)
-roundtable start           # opens tmux: left=lead | right=impl | window 'relay'
+roundtable start           # opens tmux workbench: top lead|impl, bottom command|relay
 ```
 
 `rt` is a built-in shorthand for `roundtable` (e.g. `rt start`, `rt list`, `rt stop`).
+
+## Workbench, Mouse, And Popups
+
+By default, `roundtable start` creates a 4-pane workbench:
+
+```text
+top:    lead (Claude Code) | impl (Codex)
+bottom: command shell      | relay watcher
+```
+
+The bottom-left pane is a normal shell in the project directory. The bottom-right pane is the visible relay
+watcher. `RT_LAYOUT=classic` restores the old layout: lead on the left, impl on the right, and a separate
+`relay` window. If the terminal is below roughly `100x30`, start warns but proceeds best-effort.
+
+`RT_MOUSE=1` is on by default: wheel scrolls pane history, click selects panes, and drag resizes panes. It
+also changes native terminal text selection; many terminals require holding Shift or Option for native
+selection. To return to the old feel:
+
+```bash
+RT_LAYOUT=classic RT_MOUSE=0 roundtable start
+```
+
+`RT_MOUSE=0` only means roundtable does not set the tmux mouse option; it does not force `mouse off`, so your
+tmux config still applies.
+
+When the current tmux supports `display-popup`, roundtable installs two global, context-aware prefix keys:
+
+- `prefix+g`: tips/cheatsheet popup with commands, the actual configured keys, and recovery reminders.
+- `prefix+e`: project file-view popup; uses the first available of `yazi`, `lf`, `ranger`, or `tree`, else
+  `ls -R` (paged with `less` when present, otherwise printed with Enter-to-close).
+
+The bindings are tmux-server-global, but they read the current session's `@roundtable_dir` and
+`@roundtable_keys` at invocation time, so multiple project sessions can share the same keys. If the target
+key is already bound to a non-roundtable command, roundtable preserves it and warns; set `RT_TIPS_KEY` /
+`RT_FILE_KEY` to choose different keys, or `RT_KEYS=0` to make popups a hard no-op for that session and
+install no new bindings. `roundtable stop` never unbinds these global keys because another active roundtable
+session may still need them. The file popup does not implement a picker or file actions; external file
+managers run with your own config and may allow navigation or mutation.
 
 On first start, the **kickoff is automatic**: once each pane's CLI output looks settled,
 `roundtable start` sends it the matching operating contract (`protocol.md` + `lead.md`/`impl.md`).
@@ -111,11 +149,18 @@ keep their full context. Reconnect any time with `tmux attach -t <session>` (fin
 **Stop.** From the project dir:
 
 ```bash
-roundtable stop      # kills this project's tmux session (lead, impl, relay)
+roundtable stop      # kills this project's tmux session (lead, impl, command, relay)
 ```
 
 This ends the CLI processes. The durable artifacts under `.roundtable/` are untouched, so the
 work is fully recoverable on the next start.
+
+**Relay pane killed.** If the bottom-right relay pane in the workbench is manually killed, lead/impl can still
+look healthy, but handoffs will no longer be relayed. Recovery is still:
+
+```bash
+roundtable stop && roundtable start
+```
 
 **Restart / resume the same project.** Just start again — **do not clean anything**:
 
@@ -178,6 +223,11 @@ separate project.
 | `CLAUDE_CMD` | `claude` | command to start the lead CLI |
 | `CODEX_CMD` | `codex` | command to start the impl CLI |
 | `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
+| `RT_LAYOUT` | `workbench` | `workbench` = 4-pane layout; `classic` = old 2 panes + relay window |
+| `RT_MOUSE` | `1` | enable tmux mouse mode for the session; `0` = do not set it, inherit user config |
+| `RT_KEYS` | `1` | install/use popup keys; `0` = popup no-op for this session and install no new keys |
+| `RT_TIPS_KEY` | `g` | tmux prefix key for the tips popup |
+| `RT_FILE_KEY` | `e` | tmux prefix key for the project file-view popup |
 | `POLL_SECONDS` | `1.0` | relay poll interval |
 | `AUTO_KICKOFF` | `1` | auto-send each pane its operating contract once its CLI output looks settled (`0` = manual paste) |
 | `KICKOFF_TIMEOUT` | `30` | max seconds to wait for a pane to settle before falling back to manual |

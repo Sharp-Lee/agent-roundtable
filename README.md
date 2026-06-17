@@ -61,10 +61,43 @@ export PATH="$PWD/bin:$PATH"
 
 cd /path/to/your/dev/project
 roundtable init            # 生成 .roundtable/（requirements、channel、decisions、prompts）
-roundtable start           # 打开 tmux：左=lead | 右=impl | 窗口 'relay'
+roundtable start           # 打开 tmux workbench：上 lead|impl，下 command|relay
 ```
 
 `rt` 是 `roundtable` 的内置简写（例如 `rt start`、`rt list`、`rt stop`）。
+
+## Workbench、鼠标与弹窗
+
+默认的 `roundtable start` 会创建一个 4-pane workbench：
+
+```text
+上排：lead（Claude Code） | impl（Codex）
+下排：command shell       | relay watcher
+```
+
+左下角是项目目录里的普通 shell，右下角是可见的 relay watcher。`RT_LAYOUT=classic` 会恢复旧布局：
+左侧 lead、右侧 impl，另开一个 `relay` 窗口。终端小于约 `100x30` 时会警告但仍尽量启动。
+
+`RT_MOUSE=1` 默认开启 tmux mouse：滚轮滚动 pane 历史、点击选择 pane、拖拽调整大小。它也会改变
+终端原生选中文本的手感；很多终端需要按住 Shift 或 Option 才能做原生选择。想回到旧体验：
+
+```bash
+RT_LAYOUT=classic RT_MOUSE=0 roundtable start
+```
+
+`RT_MOUSE=0` 只是让 roundtable 不设置 mouse 选项，不会强制 `mouse off`；会继承你的 tmux 配置。
+
+如果当前 tmux 支持 `display-popup`，roundtable 会安装两组全局、上下文感知的 prefix 快捷键：
+
+- `prefix+g`：tips/cheatsheet 弹窗，显示命令、当前快捷键和常用恢复提醒。
+- `prefix+e`：项目文件视图弹窗；优先使用 `yazi`、`lf`、`ranger`、`tree`，否则 `ls -R`（有 `less`
+  就分页，没有就打印后按 Enter 关闭）。
+
+快捷键是 tmux server 全局的，但执行时读取当前 session 的 `@roundtable_dir` 和 `@roundtable_keys`，
+所以多个项目会话可以共用同一组键。若目标键已被非 roundtable 绑定占用，roundtable 会保留它并警告；
+用 `RT_TIPS_KEY` / `RT_FILE_KEY` 改键，或用 `RT_KEYS=0` 让本 session 的弹窗硬 no-op 且不安装新键。
+`roundtable stop` 不会解绑这些全局键，以免破坏另一个仍在运行的 roundtable session。文件弹窗本身
+不实现选择器或文件操作；外部文件管理器按你的个人配置运行，可能允许导航或修改。
 
 首次启动时，**kickoff 是自动的**：一旦某个 pane 的 CLI 输出看起来稳定下来，`roundtable start`
 就会把对应的操作契约（`protocol.md` + `lead.md`/`impl.md`）发给它。你只需把原始想法发给
@@ -107,10 +140,17 @@ kickoff 同时是**状态自适应**的：它会让每个 pane 重读 `requireme
 **停止。** 在项目目录下：
 
 ```bash
-roundtable stop      # 杀掉本项目的 tmux 会话（lead、impl、relay）
+roundtable stop      # 杀掉本项目的 tmux 会话（lead、impl、command、relay）
 ```
 
 这会结束 CLI 进程。`.roundtable/` 下的持久产物原封不动，所以下次启动时工作完全可恢复。
+
+**relay pane 被杀掉。** workbench 里的右下角 relay pane 如果被手动 `kill-pane`，lead/impl 看起来仍在，
+但 handoff 不会再被中继。恢复方式仍然是：
+
+```bash
+roundtable stop && roundtable start
+```
 
 **重启 / 恢复同一个项目。** 直接再启动一次——**什么都别清**：
 
@@ -169,6 +209,11 @@ cp templates/{requirements,channel,decisions}.md .roundtable/
 | `CLAUDE_CMD` | `claude` | 启动 lead CLI 的命令 |
 | `CODEX_CMD` | `codex` | 启动 impl CLI 的命令 |
 | `SESSION` | 按项目 `roundtable-<name>-<hash>` | 覆盖 tmux 会话名 |
+| `RT_LAYOUT` | `workbench` | `workbench` = 4-pane 布局；`classic` = 旧 2-pane + relay 窗口 |
+| `RT_MOUSE` | `1` | 为本 session 开启 tmux mouse；`0` = 不设置，继承用户配置 |
+| `RT_KEYS` | `1` | 安装/使用弹窗快捷键；`0` = 本 session 弹窗 no-op，且不安装新键 |
+| `RT_TIPS_KEY` | `g` | tips 弹窗的 tmux prefix 快捷键 |
+| `RT_FILE_KEY` | `e` | 项目文件视图弹窗的 tmux prefix 快捷键 |
 | `POLL_SECONDS` | `1.0` | 中继轮询间隔 |
 | `AUTO_KICKOFF` | `1` | 一旦 CLI 输出看起来稳定就自动发送操作契约（`0` = 手动粘贴） |
 | `KICKOFF_TIMEOUT` | `30` | 在回退到手动前，每个 pane 等待稳定的最大秒数 |
