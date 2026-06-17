@@ -67,13 +67,20 @@ roundtable start           # opens tmux: left=lead | right=impl | window 'relay'
 
 `rt` is a built-in shorthand for `roundtable` (e.g. `rt start`, `rt list`, `rt stop`).
 
-On first start, do the **one-time kickoff** (the only manual paste in the whole flow):
+On first start, the **kickoff is automatic**: once each pane's CLI is ready, `roundtable start`
+sends it the matching operating contract (`protocol.md` + `lead.md`/`impl.md`). You only need to
+give your raw idea to the **left (lead)** pane — the relay takes over from there.
 
-1. Left pane (Claude Code is up): send
-   `Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md — that is your operating contract. Acknowledge, then wait for my idea.`
-2. Right pane (Codex is up): send
-   `Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md — that is your operating contract. Acknowledge, then wait.`
-3. Give your raw idea to the **left (lead)** pane. The relay takes over.
+The kickoff is also **state-aware**: it tells each pane to re-read `requirements.md`, `channel.md`
+and `decisions.md`, so re-starting a project mid-flight resumes from the last handoff (on a fresh
+project those artifacts are empty templates, so it just waits for your idea). If you only detached
+from a still-running session, no kickoff is needed — just `tmux attach` back.
+
+Set `AUTO_KICKOFF=0` to do it manually instead (paste these once each pane is up):
+
+1. Left pane (Claude Code): `Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md — that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is in progress, continue from the last handoff; otherwise acknowledge and wait for my idea.`
+2. Right pane (Codex): `Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md — that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is in progress, continue from the last handoff; otherwise acknowledge and wait.`
+3. Give your raw idea to the **left (lead)** pane.
 
 Approve requirements at Gate A by typing into the lead pane:
 `ARBITER: approved requirements v1`
@@ -101,6 +108,8 @@ roundtables at once. `roundtable list` shows the running ones.
 | `CODEX_CMD` | `codex` | command to start the impl CLI |
 | `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
 | `POLL_SECONDS` | `1.0` | relay poll interval |
+| `AUTO_KICKOFF` | `1` | auto-send each pane its operating contract once its CLI is ready (`0` = manual paste) |
+| `KICKOFF_TIMEOUT` | `30` | max seconds to wait for a pane to be ready before falling back to manual |
 
 ## Limitations (known, by design)
 
