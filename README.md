@@ -90,10 +90,66 @@ Set `AUTO_KICKOFF=0` to do it manually instead (paste these once each pane is up
 Approve requirements at Gate A by typing into the lead pane:
 `ARBITER: approved requirements v1`
 
-Stop this project's session: `roundtable stop` (run from the project dir).
+## Lifecycle: stop, restart, resume
 
-Each project gets its own tmux session (`roundtable-<name>-<hash>`), so you can run several
-roundtables at once. `roundtable list` shows the running ones.
+The guiding idea — **files are the memory, panes are disposable** — means you can kill and
+recreate panes freely; nothing is lost as long as the on-disk artifacts survive.
+
+**Detach (keep it running).** `Ctrl-b d` leaves the session alive in the background. The two CLIs
+keep their full context. Reconnect any time with `tmux attach -t <session>` (find the name via
+`roundtable list`) — **no kickoff needed**, the panes never died.
+
+**Stop.** From the project dir:
+
+```bash
+roundtable stop      # kills this project's tmux session (lead, impl, relay)
+```
+
+This ends the CLI processes. The durable artifacts under `.roundtable/` are untouched, so the
+work is fully recoverable on the next start.
+
+**Restart / resume the same project.** Just start again — **do not clean anything**:
+
+```bash
+roundtable start
+```
+
+Each pane gets a brand-new CLI process (no memory of the old one), so the auto-kickoff re-sends the
+operating contract *and* tells each side to re-read `requirements.md`, `channel.md`, and
+`decisions.md`. A project that was mid-build resumes from the last handoff; a fresh project just
+waits for your idea. This is the normal path after a `stop`, a crash, a machine reboot, or a CLI
+update — the artifacts are the resume point, so you essentially never re-paste anything.
+
+**Run several at once.** Each project gets its own session (`roundtable-<name>-<hash>`), so
+multiple roundtables coexist. `roundtable list` shows the running ones.
+
+**Update the CLIs (Claude Code / Codex).** Nothing special — `roundtable stop` then
+`roundtable start`. The new binaries launch in fresh panes and resume via the artifacts.
+
+**Update this tool itself.** A running session holds the old `relay.py` in memory, so after
+pulling new code you must restart the session to pick it up:
+
+```bash
+git -C /path/to/agent-roundtable pull   # update the tool
+roundtable stop && roundtable start      # in your project dir
+```
+
+If `prompts/` changed, re-run `roundtable init` in the project to refresh the copies under
+`.roundtable/prompts/` (init refreshes prompts and mailboxes but never clobbers your
+requirements/channel/decisions).
+
+**Starting a *different*, unrelated task in the same directory (rare).** `start` always resumes the
+existing artifacts, so to begin a clean, unrelated roundtable in a directory that already holds a
+finished project's artifacts, reset the three durable files yourself — **back them up first**, since
+they are not auto-saved:
+
+```bash
+mkdir -p .roundtable/_backup && cp .roundtable/{requirements,channel,decisions}.md .roundtable/_backup/
+cp templates/{requirements,channel,decisions}.md .roundtable/
+```
+
+In normal one-directory-per-project use you never need this; prefer a separate directory for a
+separate project.
 
 ## What lives where
 
