@@ -17,8 +17,9 @@ Mailboxes (inside <project>/.roundtable/):
 
 Config via environment:
   ROUNDTABLE_DIR : absolute path to the project's .roundtable directory
-  LEAD_PANE      : tmux target for the lead pane (e.g. roundtable:0.0)
-  IMPL_PANE      : tmux target for the impl pane (e.g. roundtable:0.1)
+  SESSION        : tmux session that owns the lead/impl panes
+  LEAD_PANE      : tmux target for the lead pane (usually a unique %N id)
+  IMPL_PANE      : tmux target for the impl pane (usually a unique %N id)
   POLL_SECONDS   : poll interval (default 1.0)
 """
 from __future__ import annotations
@@ -43,12 +44,33 @@ def _now() -> str:
     return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def _send_keys(pane: str, text: str) -> None:
+def _pane_belongs_to_session(session: str, pane: str) -> bool:
+    if not session or not pane:
+        return False
+    if subprocess.run(["tmux", "has-session", "-t", session], check=False).returncode != 0:
+        return False
+    result = subprocess.run(
+        ["tmux", "display-message", "-p", "-t", pane, "#{session_name}"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and result.stdout.strip() == session
+
+
+def _send_keys(session: str, pane: str, text: str) -> bool:
+    if not _pane_belongs_to_session(session, pane):
+        sys.stderr.write(
+            f"relay: warning: pane {pane!r} is stale or outside session {session!r}; "
+            "restart the session\n"
+        )
+        return False
     # Type the nudge literally, then submit with Enter. Two calls keep the
     # literal text and the Enter key distinct so the TUI submits cleanly.
     subprocess.run(["tmux", "send-keys", "-t", pane, "-l", text], check=False)
     time.sleep(0.2)
     subprocess.run(["tmux", "send-keys", "-t", pane, "Enter"], check=False)
+    return True
 
 
 def _append_transcript(channel: Path, *, frm: str, to: str, body: str) -> None:
@@ -59,6 +81,7 @@ def _append_transcript(channel: Path, *, frm: str, to: str, body: str) -> None:
 
 def main() -> int:
     root = Path(_env("ROUNDTABLE_DIR")).expanduser().resolve()
+    session = _env("SESSION")
     lead_pane = _env("LEAD_PANE")
     impl_pane = _env("IMPL_PANE")
     poll = float(os.environ.get("POLL_SECONDS", "1.0"))
@@ -74,7 +97,7 @@ def main() -> int:
     last_mtime = {p: (p.stat().st_mtime if p.exists() else 0.0) for p in routes}
 
     sys.stderr.write(
-        f"relay: watching {root} (lead={lead_pane} impl={impl_pane}); Ctrl-C to stop\n"
+        f"relay: watching {root} (session={session} lead={lead_pane} impl={impl_pane}); Ctrl-C to stop\n"
     )
 
     while True:
@@ -95,8 +118,10 @@ def main() -> int:
                     f"Read it and act per .roundtable/prompts/{to}.md. "
                     "Do not poll; when done, write your reply to your outbox and stop."
                 )
-                _send_keys(pane, nudge)
-                sys.stderr.write(f"relay: {frm} -> {to} ({len(body)} chars)\n")
+                if _send_keys(session, pane, nudge):
+                    sys.stderr.write(f"relay: {frm} -> {to} ({len(body)} chars)\n")
+                else:
+                    sys.stderr.write(f"relay: {frm} -> {to} ({len(body)} chars, nudge skipped)\n")
             time.sleep(poll)
         except KeyboardInterrupt:
             sys.stderr.write("\nrelay: stopped\n")

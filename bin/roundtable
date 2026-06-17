@@ -19,6 +19,7 @@
 #   CLAUDE_CMD (default: claude)   command to start the lead CLI
 #   CODEX_CMD  (default: codex)    command to start the impl CLI
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
+#   RT_LAYOUT  (default: workbench)  workbench = 4 panes; classic = old 2 panes + relay window
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 set -euo pipefail
@@ -29,6 +30,7 @@ TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SESSION="${SESSION:-}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
+RT_LAYOUT="${RT_LAYOUT:-workbench}"
 # Auto-kickoff: send each pane its operating-contract prompt once its CLI looks settled.
 # Set AUTO_KICKOFF=0 to keep the old manual paste. KICKOFF_TIMEOUT caps the per-pane wait.
 AUTO_KICKOFF="${AUTO_KICKOFF:-1}"
@@ -36,17 +38,40 @@ KICKOFF_TIMEOUT="${KICKOFF_TIMEOUT:-30}"
 
 die() { echo "roundtable: $*" >&2; exit 1; }
 
+_shell_quote() {
+  local value="${1//\'/\'\\\'\'}"
+  printf "'%s'" "$value"
+}
+
+_pane_belongs_to_session() {
+  local sess="$1" pane="$2" pane_session
+  [ -n "$sess" ] && [ -n "$pane" ] || return 1
+  tmux has-session -t "$sess" 2>/dev/null || return 1
+  pane_session="$(tmux display-message -p -t "$pane" '#{session_name}' 2>/dev/null)" || return 1
+  [ "$pane_session" = "$sess" ]
+}
+
+_require_pane_in_session() {
+  local sess="$1" pane="$2"
+  if ! _pane_belongs_to_session "$sess" "$pane"; then
+    die "pane '$pane' is stale or outside session '$sess' -- restart the session"
+  fi
+}
+
 # Wait until a pane's CLI output looks settled: non-empty output that holds
 # steady for several ~1s samples after a minimum elapsed time. Loading spinners
 # keep the output changing, so we naturally wait them out. This is generic on
 # purpose -- no per-CLI prompt-string matching -- and only detects visual
 # stability, not whether the CLI is at its main input prompt.
 _wait_pane_ready() {
-  local pane="$1" timeout="$2" prev="" cur="" i=0 stable=0
+  local pane="$1" timeout="$2" sess="${3:-}" prev="" cur="" i=0 stable=0
   local min_elapsed=5 stable_required=3
   while [ "$i" -lt "$timeout" ]; do
     sleep 1; i=$((i + 1))
-    cur="$(tmux capture-pane -p -t "$pane" 2>/dev/null)"
+    if [ -n "$sess" ] && ! _pane_belongs_to_session "$sess" "$pane"; then
+      return 2
+    fi
+    cur="$(tmux capture-pane -p -t "$pane" 2>/dev/null)" || return 2
     if [ -n "$cur" ] && [ "$cur" = "$prev" ]; then
       stable=$((stable + 1))
       if [ "$i" -ge "$min_elapsed" ] && [ "$stable" -ge "$stable_required" ]; then return 0; fi
@@ -60,8 +85,24 @@ _wait_pane_ready() {
 
 # Type a multi-line-safe prompt into a pane, then submit (mirrors relay.py's two-step send).
 _send_prompt() {
-  local pane="$1" text="$2"
-  tmux send-keys -t "$pane" -l "$text"; sleep 0.2; tmux send-keys -t "$pane" Enter
+  local pane="$1" text="$2" sess="${3:-}"
+  if [ -n "$sess" ]; then
+    _require_pane_in_session "$sess" "$pane"
+  fi
+  tmux send-keys -t "$pane" -l "$text" || return 1
+  sleep 0.2
+  tmux send-keys -t "$pane" Enter || return 1
+}
+
+_relay_command() {
+  local sess="$1" rt="$2" lead_pane="$3" impl_pane="$4"
+  printf 'SESSION=%s ROUNDTABLE_DIR=%s LEAD_PANE=%s IMPL_PANE=%s python3 %s; echo; echo %s; read _' \
+    "$(_shell_quote "$sess")" \
+    "$(_shell_quote "$rt")" \
+    "$(_shell_quote "$lead_pane")" \
+    "$(_shell_quote "$impl_pane")" \
+    "$(_shell_quote "$TOOL_ROOT/bin/relay.py")" \
+    "$(_shell_quote "[relay stopped] press enter to close")"
 }
 
 # Single source of truth for the kickoff prompt. role = lead | impl.
@@ -126,49 +167,121 @@ cmd_start() {
   [ -d "$rt" ] || die "no .roundtable in $target -- run 'roundtable init' first"
   command -v tmux >/dev/null 2>&1 || die "tmux is required"
 
-  local SESSION="${SESSION:-$(_session_for "$target")}"
-  if tmux has-session -t "$SESSION" 2>/dev/null; then
-    die "session '$SESSION' (this project) already exists -- attach with 'tmux attach -t $SESSION' or 'roundtable stop' first"
+  local sess="${SESSION:-$(_session_for "$target")}"
+  local layout="$RT_LAYOUT"
+  case "$layout" in
+    workbench|classic) ;;
+    *) die "RT_LAYOUT must be 'workbench' or 'classic' (got '$layout')" ;;
+  esac
+  if tmux has-session -t "$sess" 2>/dev/null; then
+    die "session '$sess' (this project) already exists -- attach with 'tmux attach -t $sess' or 'roundtable stop' first"
   fi
 
-  # Two side-by-side panes: left = lead (Claude Code), right = impl (Codex).
-  tmux new-session -d -s "$SESSION" -c "$target" -x "$(tput cols 2>/dev/null || echo 200)" -y "$(tput lines 2>/dev/null || echo 50)"
-  tmux split-window -h -t "$SESSION:0" -c "$target"
-  tmux select-pane -t "$SESSION:0.0" -T lead
-  tmux select-pane -t "$SESSION:0.1" -T impl
-  tmux set-option -t "$SESSION" pane-border-status top 2>/dev/null || true
+  local session_created=0
+  start_fail() {
+    local message="$1"
+    echo "roundtable: $message" >&2
+    rm -f "$rt/panes.env"
+    if [ "$session_created" -eq 1 ]; then
+      tmux kill-session -t "$sess" 2>/dev/null || true
+    fi
+    exit 1
+  }
 
-  local lead_pane="$SESSION:0.0"
-  local impl_pane="$SESSION:0.1"
+  rm -f "$rt/panes.env"
+
+  local cols lines
+  cols="$(tput cols 2>/dev/null || true)"
+  lines="$(tput lines 2>/dev/null || true)"
+  case "$cols" in ''|*[!0-9]*) cols=200 ;; esac
+  case "$lines" in ''|*[!0-9]*) lines=50 ;; esac
+  if [ "$cols" -lt 100 ] || [ "$lines" -lt 30 ]; then
+    echo "roundtable: warning: terminal is ${cols}x${lines}; the workbench is best at 100x30 or larger" >&2
+  fi
+
+  local lead_pane impl_pane command_pane="" relay_pane
+  if ! lead_pane="$(tmux new-session -d -P -F '#{pane_id}' -s "$sess" -c "$target" -x "$cols" -y "$lines")"; then
+    start_fail "could not create tmux session '$sess'"
+  fi
+  session_created=1
+  [ -n "$lead_pane" ] || start_fail "tmux did not report the lead pane id"
+
+  if [ "$layout" = "workbench" ]; then
+    if ! command_pane="$(tmux split-window -v -l 33% -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
+      start_fail "could not create command pane"
+    fi
+    [ -n "$command_pane" ] || start_fail "tmux did not report the command pane id"
+    if ! impl_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
+      start_fail "could not create impl pane"
+    fi
+    [ -n "$impl_pane" ] || start_fail "tmux did not report the impl pane id"
+    if ! relay_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$command_pane" -c "$target")"; then
+      start_fail "could not create relay pane"
+    fi
+    [ -n "$relay_pane" ] || start_fail "tmux did not report the relay pane id"
+  else
+    if ! impl_pane="$(tmux split-window -h -P -F '#{pane_id}' -t "$lead_pane" -c "$target")"; then
+      start_fail "could not create impl pane"
+    fi
+    [ -n "$impl_pane" ] || start_fail "tmux did not report the impl pane id"
+    if ! relay_pane="$(tmux new-window -P -F '#{pane_id}' -t "$sess" -n relay -c "$target")"; then
+      start_fail "could not create relay window"
+    fi
+    [ -n "$relay_pane" ] || start_fail "tmux did not report the relay pane id"
+  fi
+
+  tmux select-pane -t "$lead_pane" -T lead || start_fail "could not title lead pane"
+  tmux select-pane -t "$impl_pane" -T impl || start_fail "could not title impl pane"
+  if [ -n "$command_pane" ]; then
+    tmux select-pane -t "$command_pane" -T command || start_fail "could not title command pane"
+  fi
+  tmux select-pane -t "$relay_pane" -T relay || start_fail "could not title relay pane"
+  tmux set-option -t "$sess" pane-border-status top 2>/dev/null || true
+
   cat > "$rt/panes.env" <<EOF
-SESSION=$SESSION
+SESSION=$sess
 LEAD_PANE=$lead_pane
 IMPL_PANE=$impl_pane
+RELAY_PANE=$relay_pane
 EOF
+  if [ -n "$command_pane" ]; then
+    printf 'COMMAND_PANE=%s\n' "$command_pane" >> "$rt/panes.env"
+  fi
+  tmux set-option -t "$sess" @roundtable_dir "$target" || start_fail "could not set @roundtable_dir"
 
-  # Start the relay watcher in its own window (visible + easy to kill).
-  tmux new-window -t "$SESSION" -n relay -c "$target" \
-    "ROUNDTABLE_DIR='$rt' LEAD_PANE='$lead_pane' IMPL_PANE='$impl_pane' python3 '$TOOL_ROOT/bin/relay.py'; echo; echo '[relay stopped] press enter to close'; read _"
+  # Start the relay watcher only after panes.env has the captured pane ids.
+  tmux respawn-pane -k -t "$relay_pane" "$(_relay_command "$sess" "$rt" "$lead_pane" "$impl_pane")" \
+    || start_fail "could not start relay watcher"
 
   # Start the two CLIs in their panes.
-  tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD"; tmux send-keys -t "$lead_pane" Enter
-  tmux send-keys -t "$impl_pane" -l "$CODEX_CMD";  tmux send-keys -t "$impl_pane" Enter
+  _require_pane_in_session "$sess" "$lead_pane"
+  _require_pane_in_session "$sess" "$impl_pane"
+  tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD" || start_fail "could not start lead CLI"
+  tmux send-keys -t "$lead_pane" Enter || start_fail "could not start lead CLI"
+  tmux send-keys -t "$impl_pane" -l "$CODEX_CMD" || start_fail "could not start impl CLI"
+  tmux send-keys -t "$impl_pane" Enter || start_fail "could not start impl CLI"
 
   local lead_kick impl_kick
   lead_kick="$(_kickoff_text lead)"
   impl_kick="$(_kickoff_text impl)"
   # Always drop the prompts to files so they can be re-pasted from inside tmux even
   # when auto-send mis-fires (a send can "succeed" yet land in a half-ready pane).
-  printf '%s\n' "$lead_kick" > "$rt/kickoff-lead.txt"
-  printf '%s\n' "$impl_kick" > "$rt/kickoff-impl.txt"
+  printf '%s\n' "$lead_kick" > "$rt/kickoff-lead.txt" || start_fail "could not write kickoff-lead.txt"
+  printf '%s\n' "$impl_kick" > "$rt/kickoff-impl.txt" || start_fail "could not write kickoff-impl.txt"
   local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [lead|impl]', or copy from .roundtable/kickoff-{lead,impl}.txt"
+  local layout_banner
+  if [ "$layout" = "workbench" ]; then
+    layout_banner="TOP: lead (Claude Code) | impl (Codex)   BOTTOM: command shell | relay watcher"
+  else
+    layout_banner="LEFT: lead (Claude Code)   RIGHT: impl (Codex)   window 'relay': watcher"
+  fi
 
   if [ "$AUTO_KICKOFF" = "1" ]; then
     local lead_sent=0 impl_sent=0
     echo
-    echo "Roundtable session '$SESSION' is up. Waiting for the CLIs to settle, then sending kickoff..."
-    if _wait_pane_ready "$lead_pane" "$KICKOFF_TIMEOUT"; then
-      if _send_prompt "$lead_pane" "$lead_kick"; then
+    echo "Roundtable session '$sess' is up. Waiting for the CLIs to settle, then sending kickoff..."
+    if _wait_pane_ready "$lead_pane" "$KICKOFF_TIMEOUT" "$sess"; then
+      if _send_prompt "$lead_pane" "$lead_kick" "$sess"; then
         lead_sent=1
       else
         echo "  (lead pane send failed -- paste its kickoff manually)"
@@ -176,8 +289,8 @@ EOF
     else
       echo "  (lead pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
     fi
-    if _wait_pane_ready "$impl_pane" "$KICKOFF_TIMEOUT"; then
-      if _send_prompt "$impl_pane" "$impl_kick"; then
+    if _wait_pane_ready "$impl_pane" "$KICKOFF_TIMEOUT" "$sess"; then
+      if _send_prompt "$impl_pane" "$impl_kick" "$sess"; then
         impl_sent=1
       else
         echo "  (impl pane send failed -- paste its kickoff manually)"
@@ -189,7 +302,8 @@ EOF
     cat <<EOF
 
 Kickoff sent to both panes.
-  LEFT pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+  $layout_banner
+  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 $fallback
 Now just give your raw idea to the LEFT (lead) pane. The relay takes over from there.
@@ -199,7 +313,8 @@ EOF
       cat <<EOF
 
 Auto-kickoff incomplete. Paste these kickoff prompt(s) manually after the matching pane is ready:
-  LEFT pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+  $layout_banner
+  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 EOF
       if [ "$lead_sent" -ne 1 ]; then
         cat <<EOF
@@ -222,8 +337,9 @@ EOF
   else
     cat <<EOF
 
-Roundtable session '$SESSION' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
-  LEFT  pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+Roundtable session '$sess' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
+  $layout_banner
+  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 One-time kickoff:
   1. In the LEFT  pane, once Claude Code is ready, send it:
@@ -237,8 +353,9 @@ Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
   fi
   sleep 1
-  tmux select-window -t "$SESSION:0"
-  tmux attach -t "$SESSION"
+  tmux select-window -t "$sess:0"
+  tmux select-pane -t "$lead_pane"
+  tmux attach -t "$sess"
 }
 
 cmd_stop() {
@@ -266,12 +383,15 @@ cmd_kickoff() {
   sess="$(sed -n 's/^SESSION=//p' "$envfile")"
   lead_pane="$(sed -n 's/^LEAD_PANE=//p' "$envfile")"
   impl_pane="$(sed -n 's/^IMPL_PANE=//p' "$envfile")"
+  [ -n "$sess" ] || die "panes.env is missing SESSION -- restart the session"
+  [ -n "$lead_pane" ] || die "panes.env is missing LEAD_PANE -- restart the session"
+  [ -n "$impl_pane" ] || die "panes.env is missing IMPL_PANE -- restart the session"
   tmux has-session -t "$sess" 2>/dev/null || die "session '$sess' is not running -- 'roundtable start' first"
   if [ "$only" = "lead" ] || [ "$only" = "both" ]; then
-    _send_prompt "$lead_pane" "$(_kickoff_text lead)"; echo "re-sent kickoff to lead ($lead_pane)"
+    _send_prompt "$lead_pane" "$(_kickoff_text lead)" "$sess"; echo "re-sent kickoff to lead ($lead_pane)"
   fi
   if [ "$only" = "impl" ] || [ "$only" = "both" ]; then
-    _send_prompt "$impl_pane" "$(_kickoff_text impl)"; echo "re-sent kickoff to impl ($impl_pane)"
+    _send_prompt "$impl_pane" "$(_kickoff_text impl)" "$sess"; echo "re-sent kickoff to impl ($impl_pane)"
   fi
 }
 
@@ -302,7 +422,7 @@ cmd_selftest() {
   # impl pane (0.1) captures whatever is typed into it
   tmux send-keys -t "$sess:0.1" -l "cat > '$got'"; tmux send-keys -t "$sess:0.1" Enter
 
-  ROUNDTABLE_DIR="$rt" LEAD_PANE="$sess:0.0" IMPL_PANE="$sess:0.1" POLL_SECONDS=0.3 \
+  SESSION="$sess" ROUNDTABLE_DIR="$rt" LEAD_PANE="$sess:0.0" IMPL_PANE="$sess:0.1" POLL_SECONDS=0.3 \
     python3 "$TOOL_ROOT/bin/relay.py" >/dev/null 2>&1 &
   relay_pid=$!
   sleep 1
