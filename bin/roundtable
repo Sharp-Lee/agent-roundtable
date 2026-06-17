@@ -20,6 +20,7 @@
 #   CODEX_CMD  (default: codex)    command to start the impl CLI
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
 #   RT_LAYOUT  (default: workbench)  workbench = 4 panes; classic = old 2 panes + relay window
+#   RT_MOUSE   (default: 1)        enable tmux mouse mode for the session (0 = leave user's config alone)
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 set -euo pipefail
@@ -31,6 +32,7 @@ SESSION="${SESSION:-}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 RT_LAYOUT="${RT_LAYOUT:-workbench}"
+RT_MOUSE="${RT_MOUSE:-1}"
 # Auto-kickoff: send each pane its operating-contract prompt once its CLI looks settled.
 # Set AUTO_KICKOFF=0 to keep the old manual paste. KICKOFF_TIMEOUT caps the per-pane wait.
 AUTO_KICKOFF="${AUTO_KICKOFF:-1}"
@@ -118,6 +120,13 @@ _relay_command() {
     "$(_shell_quote "[relay stopped] press enter to close")"
 }
 
+_mouse_banner_text() {
+  local mouse_enabled="$1"
+  if [ "$mouse_enabled" -eq 1 ]; then
+    printf '  Mouse is on: wheel/click/drag use tmux; hold Shift/Option for native selection (terminal-dependent). Prior behavior: RT_LAYOUT=classic RT_MOUSE=0 roundtable start\n'
+  fi
+}
+
 # Single source of truth for the kickoff prompt. role = lead | impl.
 # State-aware: also re-read the durable artifacts so a fresh pane starts clean
 # (artifacts are empty templates) or resumes an in-progress project.
@@ -190,7 +199,7 @@ cmd_start() {
     die "session '$sess' (this project) already exists -- attach with 'tmux attach -t $sess' or 'roundtable stop' first"
   fi
 
-  local session_created=0
+  local session_created=0 mouse_enabled=0
   start_fail() {
     local message="$1"
     echo "roundtable: $message" >&2
@@ -245,6 +254,13 @@ LEAD_PANE=$lead_pane
 IMPL_PANE=$impl_pane
 EOF
   tmux set-option -t "$sess" @roundtable_dir "$target" || start_fail "could not set @roundtable_dir"
+  if [ "$RT_MOUSE" != "0" ]; then
+    if tmux set-option -t "$sess" mouse on 2>/dev/null; then
+      mouse_enabled=1
+    else
+      echo "roundtable: warning: could not enable tmux mouse mode; continuing" >&2
+    fi
+  fi
 
   # Start the relay watcher only after panes.env has the captured pane ids.
   tmux respawn-pane -k -t "$relay_pane" "$(_relay_command "$sess" "$rt" "$lead_pane" "$impl_pane")" \
@@ -300,6 +316,7 @@ EOF
 
 Kickoff sent to both panes.
   $layout_banner
+$(_mouse_banner_text "$mouse_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 $fallback
@@ -311,6 +328,7 @@ EOF
 
 Auto-kickoff incomplete. Paste these kickoff prompt(s) manually after the matching pane is ready:
   $layout_banner
+$(_mouse_banner_text "$mouse_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 EOF
       if [ "$lead_sent" -ne 1 ]; then
@@ -336,6 +354,7 @@ EOF
 
 Roundtable session '$sess' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
   $layout_banner
+$(_mouse_banner_text "$mouse_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 One-time kickoff:
