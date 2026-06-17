@@ -18,6 +18,8 @@
 #   CLAUDE_CMD (default: claude)   command to start the lead CLI
 #   CODEX_CMD  (default: codex)    command to start the impl CLI
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
+#   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
+#   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 set -euo pipefail
 
 TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -26,8 +28,40 @@ TOOL_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SESSION="${SESSION:-}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
+# Auto-kickoff: send each pane its operating-contract prompt once its CLI looks settled.
+# Set AUTO_KICKOFF=0 to keep the old manual paste. KICKOFF_TIMEOUT caps the per-pane wait.
+AUTO_KICKOFF="${AUTO_KICKOFF:-1}"
+KICKOFF_TIMEOUT="${KICKOFF_TIMEOUT:-30}"
 
 die() { echo "roundtable: $*" >&2; exit 1; }
+
+# Wait until a pane's CLI output looks settled: non-empty output that holds
+# steady for several ~1s samples after a minimum elapsed time. Loading spinners
+# keep the output changing, so we naturally wait them out. This is generic on
+# purpose -- no per-CLI prompt-string matching -- and only detects visual
+# stability, not whether the CLI is at its main input prompt.
+_wait_pane_ready() {
+  local pane="$1" timeout="$2" prev="" cur="" i=0 stable=0
+  local min_elapsed=5 stable_required=3
+  while [ "$i" -lt "$timeout" ]; do
+    sleep 1; i=$((i + 1))
+    cur="$(tmux capture-pane -p -t "$pane" 2>/dev/null)"
+    if [ -n "$cur" ] && [ "$cur" = "$prev" ]; then
+      stable=$((stable + 1))
+      if [ "$i" -ge "$min_elapsed" ] && [ "$stable" -ge "$stable_required" ]; then return 0; fi
+    else
+      stable=0
+    fi
+    prev="$cur"
+  done
+  return 1
+}
+
+# Type a multi-line-safe prompt into a pane, then submit (mirrors relay.py's two-step send).
+_send_prompt() {
+  local pane="$1" text="$2"
+  tmux send-keys -t "$pane" -l "$text"; sleep 0.2; tmux send-keys -t "$pane" Enter
+}
 
 # Stable, unique-per-absolute-path, readable tmux session name for a project dir.
 _session_for() {
@@ -104,20 +138,83 @@ EOF
   tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD"; tmux send-keys -t "$lead_pane" Enter
   tmux send-keys -t "$impl_pane" -l "$CODEX_CMD";  tmux send-keys -t "$impl_pane" Enter
 
-  cat <<EOF
+  # State-aware kickoff: also re-read the durable artifacts so a fresh pane can either start
+  # clean (artifacts are empty templates) or resume an in-progress project from the last handoff.
+  local lead_kick="Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; otherwise acknowledge and wait for my idea."
+  local impl_kick="Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; otherwise acknowledge and wait."
 
-Roundtable session '$SESSION' is up.
+  if [ "$AUTO_KICKOFF" = "1" ]; then
+    local lead_sent=0 impl_sent=0
+    echo
+    echo "Roundtable session '$SESSION' is up. Waiting for the CLIs to settle, then sending kickoff..."
+    if _wait_pane_ready "$lead_pane" "$KICKOFF_TIMEOUT"; then
+      if _send_prompt "$lead_pane" "$lead_kick"; then
+        lead_sent=1
+      else
+        echo "  (lead pane send failed -- paste its kickoff manually)"
+      fi
+    else
+      echo "  (lead pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
+    fi
+    if _wait_pane_ready "$impl_pane" "$KICKOFF_TIMEOUT"; then
+      if _send_prompt "$impl_pane" "$impl_kick"; then
+        impl_sent=1
+      else
+        echo "  (impl pane send failed -- paste its kickoff manually)"
+      fi
+    else
+      echo "  (impl pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
+    fi
+    if [ "$lead_sent" -eq 1 ] && [ "$impl_sent" -eq 1 ]; then
+    cat <<EOF
+
+Kickoff sent to both panes.
+  LEFT pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+
+If either pane was on a setup prompt instead of its main input prompt, restart with AUTO_KICKOFF=0.
+Now just give your raw idea to the LEFT (lead) pane. The relay takes over from there.
+Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
+EOF
+    else
+      cat <<EOF
+
+Auto-kickoff incomplete. Paste these kickoff prompt(s) manually after the matching pane is ready:
+  LEFT pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
+EOF
+      if [ "$lead_sent" -ne 1 ]; then
+        cat <<EOF
+  LEFT:
+        $lead_kick
+EOF
+      fi
+      if [ "$impl_sent" -ne 1 ]; then
+        cat <<EOF
+  RIGHT:
+        $impl_kick
+EOF
+      fi
+      cat <<EOF
+
+After both panes have their operating contract, give your raw idea to the LEFT (lead) pane.
+Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
+EOF
+    fi
+  else
+    cat <<EOF
+
+Roundtable session '$SESSION' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
   LEFT  pane = lead (Claude Code)   RIGHT pane = impl (Codex)   window 'relay' = watcher
 
-One-time kickoff (the only manual paste in the whole flow):
+One-time kickoff:
   1. In the LEFT  pane, once Claude Code is ready, send it:
-        Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md -- that is your operating contract. Acknowledge, then wait for my idea.
+        $lead_kick
   2. In the RIGHT pane, once Codex is ready, send it:
-        Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md -- that is your operating contract. Acknowledge, then wait.
+        $impl_kick
   3. Then give your raw idea to the LEFT (lead) pane. The relay takes over from there.
 
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
+  fi
   sleep 1
   tmux select-window -t "$SESSION:0"
   tmux attach -t "$SESSION"
