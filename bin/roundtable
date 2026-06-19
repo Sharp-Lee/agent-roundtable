@@ -20,16 +20,17 @@
 #   CODEX_CMD  (default: codex)    command to start the impl CLI
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
 #   RT_LAYOUT  (default: workbench)  workbench = 4 panes; classic = old 2 panes + relay window
-#   RT_MOUSE   (default: 1)        enable tmux mouse mode for the session (0 = leave user's config alone)
-#   RT_KEYS    (default: 1)        install/use popup keybindings for this session (0 = no-op in session)
+#   RT_MOUSE   (default: 0)        enable tmux mouse at start (off by default; toggle in-session with prefix+RT_MOUSE_KEY)
+#   RT_KEYS    (default: 1)        install/use roundtable keybindings for this session (0 = no-op in session)
 #   RT_TIPS_KEY (default: g)       tmux prefix key for the roundtable tips popup
 #   RT_FILE_KEY (default: e)       tmux prefix key for the project file-view popup
+#   RT_MOUSE_KEY (default: v)      tmux prefix key that toggles tmux mouse mode on/off
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 #
 # Default layout: top lead | impl, bottom command shell | relay watcher.
-# Prior behavior: RT_LAYOUT=classic RT_MOUSE=0 roundtable start.
-# Popups: prefix+g tips and prefix+e file view; use RT_KEYS=0 or RT_*_KEY overrides.
+# Prior behavior: RT_LAYOUT=classic roundtable start (mouse is now off by default).
+# Keys: prefix+g tips, prefix+e file view, prefix+v toggle mouse; RT_KEYS=0 or RT_*_KEY overrides.
 # If the visible relay pane is killed, recover with roundtable stop && roundtable start.
 set -euo pipefail
 
@@ -40,10 +41,11 @@ SESSION="${SESSION:-}"
 CLAUDE_CMD="${CLAUDE_CMD:-claude}"
 CODEX_CMD="${CODEX_CMD:-codex}"
 RT_LAYOUT="${RT_LAYOUT:-workbench}"
-RT_MOUSE="${RT_MOUSE:-1}"
+RT_MOUSE="${RT_MOUSE:-0}"
 RT_KEYS="${RT_KEYS:-1}"
 RT_TIPS_KEY="${RT_TIPS_KEY:-g}"
 RT_FILE_KEY="${RT_FILE_KEY:-e}"
+RT_MOUSE_KEY="${RT_MOUSE_KEY:-v}"
 # Auto-kickoff: send each pane its operating-contract prompt once its CLI looks settled.
 # Set AUTO_KICKOFF=0 to keep the old manual paste. KICKOFF_TIMEOUT caps the per-pane wait.
 AUTO_KICKOFF="${AUTO_KICKOFF:-1}"
@@ -222,10 +224,35 @@ _install_popup_bindings() {
   _install_popup_binding "$file_key" file
 }
 
+# Bind a prefix key to toggle this session's tmux mouse mode. Same detect-&-preserve
+# as the popups: the 'rt-mouse' sentinel lives in the display-message so list-keys can
+# recognize our own binding. Gated by RT_KEYS like the popup keys.
+_install_mouse_binding() {
+  local key="$1" sentinel="rt-mouse" existing action
+  [ -n "$key" ] || { echo "roundtable: warning: RT_MOUSE_KEY is empty; mouse toggle key not installed" >&2; return 0; }
+  existing="$(tmux list-keys -T prefix "$key" 2>/dev/null || true)"
+  action="$(_popup_binding_action "$existing" "$sentinel" "")"
+  case "$action" in
+    keep) return 0 ;;
+    skip)
+      echo "roundtable: warning: prefix+$key is already bound; not overriding it (set RT_MOUSE_KEY to another key or RT_KEYS=0)" >&2
+      return 0
+      ;;
+  esac
+  if ! tmux bind-key -T prefix "$key" set mouse '\;' display-message "rt-mouse: mouse #{?mouse,on,off}"; then
+    echo "roundtable: warning: could not bind prefix+$key for the mouse toggle" >&2
+  fi
+}
+
 _mouse_banner_text() {
-  local mouse_enabled="$1"
+  local mouse_enabled="$1" mouse_key="$2" keys_enabled="${3:-1}" hint=""
+  if [ "$keys_enabled" = "1" ] && [ -n "$mouse_key" ]; then
+    hint=" Toggle tmux mouse with prefix+$mouse_key."
+  fi
   if [ "$mouse_enabled" -eq 1 ]; then
-    printf '  Mouse is on: wheel/click/drag use tmux; hold Shift/Option for native selection (terminal-dependent). Prior behavior: RT_LAYOUT=classic RT_MOUSE=0 roundtable start\n'
+    printf '  Mouse is ON: wheel/click/drag use tmux (hold Shift/Option for native selection).%s\n' "$hint"
+  else
+    printf '  Mouse is off; native text selection works as usual.%s\n' "$hint"
   fi
 }
 
@@ -251,16 +278,17 @@ _page_or_read() {
 }
 
 _popup_tips_text() {
-  local dir="$1" tips_key="$2" file_key="$3"
+  local dir="$1" tips_key="$2" file_key="$3" mouse_key="$4"
   cat <<EOF
 roundtable tips
 
 Project:
   $dir
 
-Popup keys:
+Keys:
   prefix+$tips_key  tips
   prefix+$file_key  file view
+  prefix+$mouse_key  toggle mouse on/off
 
 Commands:
   rt init [dir]          scaffold .roundtable/
@@ -272,10 +300,11 @@ Commands:
 
 Environment:
   RT_LAYOUT=workbench|classic
-  RT_MOUSE=1|0
+  RT_MOUSE=1|0 (start with mouse on; default off)
   RT_KEYS=1|0
   RT_TIPS_KEY=$tips_key
   RT_FILE_KEY=$file_key
+  RT_MOUSE_KEY=$mouse_key
   AUTO_KICKOFF=1|0
   KICKOFF_TIMEOUT=30
   CLAUDE_CMD=claude
@@ -302,14 +331,17 @@ cmd_popup() {
     echo "roundtable: popup inactive here (not a roundtable session, or RT_KEYS=0 for this session)"
     return 0
   fi
+  local mouse_key
   tips_key="$(_popup_option roundtable_tips_key)"
   file_key="$(_popup_option roundtable_file_key)"
+  mouse_key="$(_popup_option roundtable_mouse_key)"
   tips_key="${tips_key:-g}"
   file_key="${file_key:-e}"
+  mouse_key="${mouse_key:-v}"
 
   case "$kind" in
     tips)
-      _popup_tips_text "$dir" "$tips_key" "$file_key" | _page_or_read
+      _popup_tips_text "$dir" "$tips_key" "$file_key" "$mouse_key" | _page_or_read
       ;;
     file)
       if ! cd "$dir"; then
@@ -466,8 +498,10 @@ EOF
   tmux set-option -t "$sess" @roundtable_keys "$keys_enabled" || start_fail "could not set @roundtable_keys"
   tmux set-option -t "$sess" @roundtable_tips_key "$RT_TIPS_KEY" || start_fail "could not set @roundtable_tips_key"
   tmux set-option -t "$sess" @roundtable_file_key "$RT_FILE_KEY" || start_fail "could not set @roundtable_file_key"
+  tmux set-option -t "$sess" @roundtable_mouse_key "$RT_MOUSE_KEY" || start_fail "could not set @roundtable_mouse_key"
   if [ "$keys_enabled" -eq 1 ]; then
     _install_popup_bindings "$RT_TIPS_KEY" "$RT_FILE_KEY"
+    _install_mouse_binding "$RT_MOUSE_KEY"
   fi
   if [ "$RT_MOUSE" != "0" ]; then
     if tmux set-option -t "$sess" mouse on 2>/dev/null; then
@@ -531,7 +565,7 @@ EOF
 
 Kickoff sent to both panes.
   $layout_banner
-$(_mouse_banner_text "$mouse_enabled")
+$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 $fallback
@@ -543,7 +577,7 @@ EOF
 
 Auto-kickoff incomplete. Paste these kickoff prompt(s) manually after the matching pane is ready:
   $layout_banner
-$(_mouse_banner_text "$mouse_enabled")
+$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 EOF
       if [ "$lead_sent" -ne 1 ]; then
@@ -569,7 +603,7 @@ EOF
 
 Roundtable session '$sess' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
   $layout_banner
-$(_mouse_banner_text "$mouse_enabled")
+$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
   Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
 
 One-time kickoff:
@@ -714,6 +748,9 @@ cmd_selftest() {
   _selftest_assert_eq "popup binding action keeps current binding" "keep" "$(_popup_binding_action "$popup_existing" "rt-popup:tips" "$popup_command")" || rc=1
   _selftest_assert_eq "popup binding action refreshes stale own binding" "bind" "$(_popup_binding_action "RT_POPUP_SENTINEL=rt-popup:tips '/tmp/old/bin/roundtable' _popup tips" "rt-popup:tips" "$popup_command")" || rc=1
   _selftest_assert_eq "popup binding action skips foreign binding" "skip" "$(_popup_binding_action "bind-key -T prefix g display-message user-binding" "rt-popup:tips" "$popup_command")" || rc=1
+  _selftest_assert_eq "mouse binding action binds empty key" "bind" "$(_popup_binding_action "" "rt-mouse" "")" || rc=1
+  _selftest_assert_eq "mouse binding action keeps own binding" "keep" "$(_popup_binding_action 'bind-key -T prefix v set-option mouse \; display-message "rt-mouse: mouse on"' "rt-mouse" "")" || rc=1
+  _selftest_assert_eq "mouse binding action skips foreign binding" "skip" "$(_popup_binding_action "bind-key -T prefix v select-pane -m" "rt-mouse" "")" || rc=1
 
   if grep -q "selftest ping" "$rt/channel.md" 2>/dev/null; then
     _selftest_pass "handoff appended to channel.md (transcript works)"
@@ -814,10 +851,11 @@ Each project gets its own session (roundtable-<name>-<hash>), so multiple
 roundtables run concurrently. Override the name with SESSION=... if needed.
 
 Default layout: top lead | impl, bottom command shell | relay watcher.
-Popups: prefix+g tips, prefix+e file view. Env: RT_LAYOUT=classic,
-RT_MOUSE=0, RT_KEYS=0, RT_TIPS_KEY=<key>, RT_FILE_KEY=<key>.
-Mouse changes native text selection; prior behavior: RT_LAYOUT=classic RT_MOUSE=0.
-Relay pane killed/stopped? Recover with 'roundtable stop && roundtable start'.
+Keys: prefix+g tips, prefix+e file view, prefix+v toggle mouse. Env: RT_LAYOUT=classic,
+RT_MOUSE=1 (start with mouse on; off by default), RT_KEYS=0,
+RT_TIPS_KEY=<key>, RT_FILE_KEY=<key>, RT_MOUSE_KEY=<key>.
+Mouse is off by default (native selection works); toggle it with prefix+v when you want
+wheel scroll/resize. Relay pane killed/stopped? Recover with 'roundtable stop && roundtable start'.
 EOF
        exit 1 ;;
   esac

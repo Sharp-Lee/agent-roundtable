@@ -82,33 +82,30 @@ The bottom-left pane is a normal shell in the project directory. The bottom-righ
 watcher. `RT_LAYOUT=classic` restores the old layout: lead on the left, impl on the right, and a separate
 `relay` window. If the terminal is below roughly `100x30`, start warns but proceeds best-effort.
 
-`RT_MOUSE=1` is on by default: wheel scrolls pane history, click selects panes, and drag resizes panes. It
-also changes native terminal text selection; many terminals require holding Shift or Option for native
-selection. To return to the old feel:
+**tmux mouse is off by default** (`RT_MOUSE=0`), so text selection and copy behave exactly as usual. When you
+want the wheel to scroll pane history, click to select panes, or drag to resize, **press `prefix+v` to turn it
+on** (press again to turn it off). To start with the mouse already on, use `RT_MOUSE=1 roundtable start`; to
+change the toggle key, set `RT_MOUSE_KEY=<key>`.
 
-```bash
-RT_LAYOUT=classic RT_MOUSE=0 roundtable start
-```
+**Why off-by-default + a toggle:** with the mouse on, the wheel drops the pane into tmux **copy-mode**, where
+keys become copy-mode commands instead of input — e.g. `f` pops up `(jump to forward)` and typing seems to do
+nothing. Off-by-default avoids stumbling into that; when you do want to scroll, `prefix+v` on, then **press `q`
+or `Esc` to leave copy-mode**, and `prefix+v` off again if you like. The `prefix+g` tips popup carries this
+reminder too.
 
-`RT_MOUSE=0` only means roundtable does not set the tmux mouse option; it does not force `mouse off`, so your
-tmux config still applies.
-
-**Common gotcha:** with the mouse on, the wheel drops the pane into tmux **copy-mode**. While there, keys are
-copy-mode commands, not input — e.g. `f` pops up `(jump to forward)` in the status line and typing seems to do
-nothing. **Press `q` or `Esc` to leave copy-mode** and resume typing (after scrolling history, hit `q` before
-you type). The `prefix+g` tips popup carries this reminder too.
-
-When the current tmux supports `display-popup`, roundtable installs two global, context-aware prefix keys:
+roundtable installs a few global, context-aware prefix keys (the popup keys require the current tmux to support
+`display-popup`):
 
 - `prefix+g`: tips/cheatsheet popup with commands, the actual configured keys, and recovery reminders.
 - `prefix+e`: project file-view popup; uses the first available of `yazi`, `lf`, `ranger`, or `tree`, else
   `ls -R` (paged with `less` when present, otherwise printed with Enter-to-close).
+- `prefix+v`: toggle tmux mouse on/off (does not require `display-popup`).
 
 The bindings are tmux-server-global, but they read the current session's `@roundtable_dir` and
 `@roundtable_keys` at invocation time, so multiple project sessions can share the same keys. If the target
 key is already bound to a non-roundtable command, roundtable preserves it and warns; set `RT_TIPS_KEY` /
-`RT_FILE_KEY` to choose different keys, or `RT_KEYS=0` to make popups a hard no-op for that session and
-install no new bindings. `roundtable stop` never unbinds these global keys because another active roundtable
+`RT_FILE_KEY` / `RT_MOUSE_KEY` to choose different keys, or `RT_KEYS=0` to make these keys a hard no-op for
+that session and install no new bindings. `roundtable stop` never unbinds these global keys because another active roundtable
 session may still need them. The file popup does not implement a picker or file actions; external file
 managers run with your own config and may allow navigation or mutation.
 
@@ -229,10 +226,11 @@ separate project.
 | `CODEX_CMD` | `codex` | command to start the impl CLI |
 | `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
 | `RT_LAYOUT` | `workbench` | `workbench` = 4-pane layout; `classic` = old 2 panes + relay window |
-| `RT_MOUSE` | `1` | enable tmux mouse mode for the session; `0` = do not set it, inherit user config |
-| `RT_KEYS` | `1` | install/use popup keys; `0` = popup no-op for this session and install no new keys |
+| `RT_MOUSE` | `0` | `1` = start with tmux mouse on; off by default, toggle at runtime with `prefix+v` |
+| `RT_KEYS` | `1` | install/use roundtable keys; `0` = these keys no-op for this session and install no new keys |
 | `RT_TIPS_KEY` | `g` | tmux prefix key for the tips popup |
 | `RT_FILE_KEY` | `e` | tmux prefix key for the project file-view popup |
+| `RT_MOUSE_KEY` | `v` | tmux prefix key that toggles tmux mouse on/off |
 | `POLL_SECONDS` | `1.0` | relay poll interval |
 | `AUTO_KICKOFF` | `1` | auto-send each pane its operating contract once its CLI output looks settled (`0` = manual paste) |
 | `KICKOFF_TIMEOUT` | `30` | max seconds to wait for a pane to settle before falling back to manual |

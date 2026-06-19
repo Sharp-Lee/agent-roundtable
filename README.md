@@ -78,28 +78,25 @@ roundtable start           # 打开 tmux workbench：上 lead|impl，下 command
 左下角是项目目录里的普通 shell，右下角是可见的 relay watcher。`RT_LAYOUT=classic` 会恢复旧布局：
 左侧 lead、右侧 impl，另开一个 `relay` 窗口。终端小于约 `100x30` 时会警告但仍尽量启动。
 
-`RT_MOUSE=1` 默认开启 tmux mouse：滚轮滚动 pane 历史、点击选择 pane、拖拽调整大小。它也会改变
-终端原生选中文本的手感；很多终端需要按住 Shift 或 Option 才能做原生选择。想回到旧体验：
+**tmux mouse 默认关闭**（`RT_MOUSE=0`），这样拖选/复制和平时一模一样。需要滚轮滚 pane 历史、
+点击选 pane、拖边框调大小时，**按 `prefix+v` 临时开启**（再按一次关闭）。想一启动就开着鼠标，用
+`RT_MOUSE=1 roundtable start`；想改开关键，用 `RT_MOUSE_KEY=<key>`。
 
-```bash
-RT_LAYOUT=classic RT_MOUSE=0 roundtable start
-```
+**为什么默认关 + 用快捷键开**：鼠标开着时，滚轮一滚就把 pane 切进 tmux **copy-mode**，此时键盘变成
+copy-mode 命令而不是输入——比如按 `f` 会在状态栏弹出 `(jump to forward)`，打字也"没反应"。默认关掉
+就不会误入；真要滚历史时 `prefix+v` 开、看完 **按 `q` 或 `Esc` 退出 copy-mode**、需要的话再 `prefix+v`
+关。`prefix+g` 的 tips 弹窗里也有这条提醒。
 
-`RT_MOUSE=0` 只是让 roundtable 不设置 mouse 选项，不会强制 `mouse off`；会继承你的 tmux 配置。
-
-**常见困惑**：开了鼠标后，滚轮一滚就把 pane 切进 tmux **copy-mode**。此时键盘是 copy-mode 命令而不是
-输入——比如按 `f` 会在状态栏弹出 `(jump to forward)`，打字也"没反应"。**按 `q` 或 `Esc` 退出 copy-mode**
-即可恢复输入（滚完历史记得先按 `q` 再打字）。`prefix+g` 的 tips 弹窗里也有这条提醒。
-
-如果当前 tmux 支持 `display-popup`，roundtable 会安装两组全局、上下文感知的 prefix 快捷键：
+roundtable 会安装几组全局、上下文感知的 prefix 快捷键（弹窗键需要当前 tmux 支持 `display-popup`）：
 
 - `prefix+g`：tips/cheatsheet 弹窗，显示命令、当前快捷键和常用恢复提醒。
 - `prefix+e`：项目文件视图弹窗；优先使用 `yazi`、`lf`、`ranger`、`tree`，否则 `ls -R`（有 `less`
   就分页，没有就打印后按 Enter 关闭）。
+- `prefix+v`：开关 tmux mouse（不依赖 `display-popup`）。
 
 快捷键是 tmux server 全局的，但执行时读取当前 session 的 `@roundtable_dir` 和 `@roundtable_keys`，
 所以多个项目会话可以共用同一组键。若目标键已被非 roundtable 绑定占用，roundtable 会保留它并警告；
-用 `RT_TIPS_KEY` / `RT_FILE_KEY` 改键，或用 `RT_KEYS=0` 让本 session 的弹窗硬 no-op 且不安装新键。
+用 `RT_TIPS_KEY` / `RT_FILE_KEY` / `RT_MOUSE_KEY` 改键，或用 `RT_KEYS=0` 让本 session 的这些键硬 no-op 且不安装新键。
 `roundtable stop` 不会解绑这些全局键，以免破坏另一个仍在运行的 roundtable session。文件弹窗本身
 不实现选择器或文件操作；外部文件管理器按你的个人配置运行，可能允许导航或修改。
 
@@ -214,10 +211,11 @@ cp templates/{requirements,channel,decisions}.md .roundtable/
 | `CODEX_CMD` | `codex` | 启动 impl CLI 的命令 |
 | `SESSION` | 按项目 `roundtable-<name>-<hash>` | 覆盖 tmux 会话名 |
 | `RT_LAYOUT` | `workbench` | `workbench` = 4-pane 布局；`classic` = 旧 2-pane + relay 窗口 |
-| `RT_MOUSE` | `1` | 为本 session 开启 tmux mouse；`0` = 不设置，继承用户配置 |
-| `RT_KEYS` | `1` | 安装/使用弹窗快捷键；`0` = 本 session 弹窗 no-op，且不安装新键 |
+| `RT_MOUSE` | `0` | `1` = 启动即开 tmux mouse；默认关闭，运行中用 `prefix+v` 临时开关 |
+| `RT_KEYS` | `1` | 安装/使用 roundtable 快捷键；`0` = 本 session 这些键 no-op，且不安装新键 |
 | `RT_TIPS_KEY` | `g` | tips 弹窗的 tmux prefix 快捷键 |
 | `RT_FILE_KEY` | `e` | 项目文件视图弹窗的 tmux prefix 快捷键 |
+| `RT_MOUSE_KEY` | `v` | 开关 tmux mouse 的 tmux prefix 快捷键 |
 | `POLL_SECONDS` | `1.0` | 中继轮询间隔 |
 | `AUTO_KICKOFF` | `1` | 一旦 CLI 输出看起来稳定就自动发送操作契约（`0` = 手动粘贴） |
 | `KICKOFF_TIMEOUT` | `30` | 在回退到手动前，每个 pane 等待稳定的最大秒数 |
