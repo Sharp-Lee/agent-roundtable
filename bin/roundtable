@@ -286,6 +286,8 @@ Reminders:
   Detach from tmux: prefix+d
   Relay stopped or killed: rt stop && rt start
   Kickoff mis-fired: rt kickoff [lead|impl]
+  Typing does nothing / keys like 'f' show "(jump to forward)"?
+    The wheel left you in copy-mode -- press q or Esc to get back to input.
 EOF
 }
 

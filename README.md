@@ -87,6 +87,10 @@ RT_LAYOUT=classic RT_MOUSE=0 roundtable start
 
 `RT_MOUSE=0` 只是让 roundtable 不设置 mouse 选项，不会强制 `mouse off`；会继承你的 tmux 配置。
 
+**常见困惑**：开了鼠标后，滚轮一滚就把 pane 切进 tmux **copy-mode**。此时键盘是 copy-mode 命令而不是
+输入——比如按 `f` 会在状态栏弹出 `(jump to forward)`，打字也"没反应"。**按 `q` 或 `Esc` 退出 copy-mode**
+即可恢复输入（滚完历史记得先按 `q` 再打字）。`prefix+g` 的 tips 弹窗里也有这条提醒。
+
 如果当前 tmux 支持 `display-popup`，roundtable 会安装两组全局、上下文感知的 prefix 快捷键：
 
 - `prefix+g`：tips/cheatsheet 弹窗，显示命令、当前快捷键和常用恢复提醒。

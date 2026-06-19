@@ -93,6 +93,11 @@ RT_LAYOUT=classic RT_MOUSE=0 roundtable start
 `RT_MOUSE=0` only means roundtable does not set the tmux mouse option; it does not force `mouse off`, so your
 tmux config still applies.
 
+**Common gotcha:** with the mouse on, the wheel drops the pane into tmux **copy-mode**. While there, keys are
+copy-mode commands, not input — e.g. `f` pops up `(jump to forward)` in the status line and typing seems to do
+nothing. **Press `q` or `Esc` to leave copy-mode** and resume typing (after scrolling history, hit `q` before
+you type). The `prefix+g` tips popup carries this reminder too.
+
 When the current tmux supports `display-popup`, roundtable installs two global, context-aware prefix keys:
 
 - `prefix+g`: tips/cheatsheet popup with commands, the actual configured keys, and recovery reminders.
