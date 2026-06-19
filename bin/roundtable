@@ -109,6 +109,13 @@ _send_prompt() {
   tmux send-keys -t "$pane" Enter || return 1
 }
 
+# Type a command line into a pane and submit it (no inter-key delay) -- used to
+# launch the CLIs, where a settle pause and ownership re-check are not wanted.
+_send_line() {
+  local pane="$1" text="$2"
+  tmux send-keys -t "$pane" -l "$text" && tmux send-keys -t "$pane" Enter
+}
+
 _new_pane() {
   local label="$1" id
   shift
@@ -167,35 +174,44 @@ _popup_binding_action() {
   fi
 }
 
-_install_popup_binding() {
-  local key="$1" kind="$2" sentinel="rt-popup:$2" key_env existing action command
-  case "$kind" in
-    tips) key_env="RT_TIPS_KEY" ;;
-    file) key_env="RT_FILE_KEY" ;;
-  esac
-  command="RT_POPUP_SENTINEL=$sentinel $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup $kind"
+# Install one global prefix-key binding with detect-&-preserve (shared by the
+# popups and the mouse toggle). Args: key, sentinel, key_env (named in the skip
+# hint), label (named in the bind-failure warning), match (text identifying our
+# own binding in list-keys; "" matches on the sentinel alone), then the tmux
+# command + args to bind. Keeps an existing roundtable binding, refuses to clobber
+# a foreign one, and binds otherwise.
+_install_prefix_binding() {
+  local key="$1" sentinel="$2" key_env="$3" label="$4" match="$5"; shift 5
+  [ -n "$key" ] || { echo "roundtable: warning: $key_env is empty; $label not installed" >&2; return 0; }
+  local existing action
   existing="$(tmux list-keys -T prefix "$key" 2>/dev/null || true)"
-  action="$(_popup_binding_action "$existing" "$sentinel" "$command")"
+  action="$(_popup_binding_action "$existing" "$sentinel" "$match")"
   case "$action" in
-    keep)
-      return 0
-      ;;
+    keep) return 0 ;;
     skip)
       echo "roundtable: warning: prefix+$key is already bound; not overriding it (set $key_env to another key or RT_KEYS=0)" >&2
       return 0
       ;;
   esac
-
-  if ! tmux bind-key -T prefix "$key" display-popup -E -w 80% -h 80% "$command"; then
-    echo "roundtable: warning: could not bind prefix+$key for roundtable $kind popup" >&2
+  if ! tmux bind-key -T prefix "$key" "$@"; then
+    echo "roundtable: warning: could not bind prefix+$key for $label" >&2
   fi
+}
+
+_install_popup_binding() {
+  local key="$1" kind="$2" sentinel="rt-popup:$2" key_env command
+  case "$kind" in
+    tips) key_env="RT_TIPS_KEY" ;;
+    file) key_env="RT_FILE_KEY" ;;
+  esac
+  command="RT_POPUP_SENTINEL=$sentinel $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup $kind"
+  _install_prefix_binding "$key" "$sentinel" "$key_env" "roundtable $kind popup" "$command" \
+    display-popup -E -w 80% -h 80% "$command"
 }
 
 _install_popup_bindings() {
   local tips_key="$1" file_key="$2" supported=0 plan
-  if _tmux_supports_display_popup; then
-    supported=1
-  fi
+  _tmux_supports_display_popup && supported=1
   plan="$(_popup_install_plan "$supported" 1 "$tips_key" "$file_key")"
   case "$plan" in
     install) ;;
@@ -224,24 +240,12 @@ _install_popup_bindings() {
   _install_popup_binding "$file_key" file
 }
 
-# Bind a prefix key to toggle this session's tmux mouse mode. Same detect-&-preserve
-# as the popups: the 'rt-mouse' sentinel lives in the display-message so list-keys can
-# recognize our own binding. Gated by RT_KEYS like the popup keys.
+# Bind a prefix key to toggle this session's tmux mouse mode. The 'rt-mouse'
+# sentinel lives in the display-message so list-keys can recognize our own
+# binding (match "" => detect on the sentinel alone). Gated by RT_KEYS.
 _install_mouse_binding() {
-  local key="$1" sentinel="rt-mouse" existing action
-  [ -n "$key" ] || { echo "roundtable: warning: RT_MOUSE_KEY is empty; mouse toggle key not installed" >&2; return 0; }
-  existing="$(tmux list-keys -T prefix "$key" 2>/dev/null || true)"
-  action="$(_popup_binding_action "$existing" "$sentinel" "")"
-  case "$action" in
-    keep) return 0 ;;
-    skip)
-      echo "roundtable: warning: prefix+$key is already bound; not overriding it (set RT_MOUSE_KEY to another key or RT_KEYS=0)" >&2
-      return 0
-      ;;
-  esac
-  if ! tmux bind-key -T prefix "$key" set mouse '\;' display-message "rt-mouse: mouse #{?mouse,on,off}"; then
-    echo "roundtable: warning: could not bind prefix+$key for the mouse toggle" >&2
-  fi
+  _install_prefix_binding "$1" rt-mouse RT_MOUSE_KEY "the mouse toggle" "" \
+    set mouse '\;' display-message "rt-mouse: mouse #{?mouse,on,off}"
 }
 
 _mouse_banner_text() {
@@ -254,6 +258,14 @@ _mouse_banner_text() {
   else
     printf '  Mouse is off; native text selection works as usual.%s\n' "$hint"
   fi
+}
+
+# The shared status block printed under every start banner (layout + mouse + relay-recovery).
+_status_banner() {
+  local layout_banner="$1" mouse_enabled="$2" mouse_key="$3" keys_enabled="$4"
+  printf '  %s\n' "$layout_banner"
+  _mouse_banner_text "$mouse_enabled" "$mouse_key" "$keys_enabled"
+  printf "  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.\n"
 }
 
 _popup_option() {
@@ -518,10 +530,8 @@ EOF
   # Start the two CLIs in their panes.
   _require_pane_in_session "$sess" "$lead_pane"
   _require_pane_in_session "$sess" "$impl_pane"
-  tmux send-keys -t "$lead_pane" -l "$CLAUDE_CMD" || start_fail "could not start lead CLI"
-  tmux send-keys -t "$lead_pane" Enter || start_fail "could not start lead CLI"
-  tmux send-keys -t "$impl_pane" -l "$CODEX_CMD" || start_fail "could not start impl CLI"
-  tmux send-keys -t "$impl_pane" Enter || start_fail "could not start impl CLI"
+  _send_line "$lead_pane" "$CLAUDE_CMD" || start_fail "could not start lead CLI"
+  _send_line "$impl_pane" "$CODEX_CMD" || start_fail "could not start impl CLI"
 
   local lead_kick impl_kick
   lead_kick="$(_kickoff_text lead)"
@@ -564,9 +574,7 @@ EOF
     cat <<EOF
 
 Kickoff sent to both panes.
-  $layout_banner
-$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
-  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
+$(_status_banner "$layout_banner" "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
 
 $fallback
 Now just give your raw idea to the LEFT (lead) pane. The relay takes over from there.
@@ -576,9 +584,7 @@ EOF
       cat <<EOF
 
 Auto-kickoff incomplete. Paste these kickoff prompt(s) manually after the matching pane is ready:
-  $layout_banner
-$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
-  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
+$(_status_banner "$layout_banner" "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
 EOF
       if [ "$lead_sent" -ne 1 ]; then
         cat <<EOF
@@ -602,9 +608,7 @@ EOF
     cat <<EOF
 
 Roundtable session '$sess' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
-  $layout_banner
-$(_mouse_banner_text "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
-  Relay stopped or killed? Run 'roundtable stop' then 'roundtable start' to recover handoffs.
+$(_status_banner "$layout_banner" "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
 
 One-time kickoff:
   1. In the LEFT  pane, once Claude Code is ready, send it:
@@ -861,4 +865,7 @@ EOF
   esac
 }
 
-main "$@"
+# Run only when executed (not when sourced, e.g. by tests).
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+  main "$@"
+fi

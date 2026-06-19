@@ -32,8 +32,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def _env(name: str, required: bool = True, default: str | None = None) -> str:
-    value = os.environ.get(name, default)
+def _env(name: str, required: bool = True) -> str:
+    value = os.environ.get(name)
     if required and not value:
         sys.stderr.write(f"relay: missing required env {name}\n")
         sys.exit(2)
@@ -44,25 +44,16 @@ def _now() -> str:
     return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _tmux(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["tmux", *args], check=False, capture_output=True, text=True)
+
+
 def _pane_belongs_to_session(session: str, pane: str) -> bool:
     if not session or not pane:
         return False
-    if (
-        subprocess.run(
-            ["tmux", "has-session", "-t", session],
-            check=False,
-            capture_output=True,
-            text=True,
-        ).returncode
-        != 0
-    ):
+    if _tmux("has-session", "-t", session).returncode != 0:
         return False
-    result = subprocess.run(
-        ["tmux", "display-message", "-p", "-t", pane, "#{session_name}"],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+    result = _tmux("display-message", "-p", "-t", pane, "#{session_name}")
     return result.returncode == 0 and result.stdout.strip() == session
 
 
@@ -75,9 +66,9 @@ def _send_keys(session: str, pane: str, text: str) -> bool:
         return False
     # Type the nudge literally, then submit with Enter. Two calls keep the
     # literal text and the Enter key distinct so the TUI submits cleanly.
-    subprocess.run(["tmux", "send-keys", "-t", pane, "-l", text], check=False)
+    _tmux("send-keys", "-t", pane, "-l", text)
     time.sleep(0.2)
-    subprocess.run(["tmux", "send-keys", "-t", pane, "Enter"], check=False)
+    _tmux("send-keys", "-t", pane, "Enter")
     return True
 
 
@@ -111,9 +102,10 @@ def main() -> int:
     while True:
         try:
             for mailbox, (frm, to, pane, inbox_rel) in routes.items():
-                if not mailbox.exists():
+                try:
+                    mtime = mailbox.stat().st_mtime
+                except FileNotFoundError:
                     continue
-                mtime = mailbox.stat().st_mtime
                 if mtime <= last_mtime[mailbox]:
                     continue
                 last_mtime[mailbox] = mtime
