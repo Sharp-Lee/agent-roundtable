@@ -11,6 +11,15 @@ Your role file (`prompts/xuan.md` or `prompts/su.md`) adds role-specific duties.
 - `lead` maps to 玄; `impl` maps to 素. Treat any remaining `lead` / `impl` in wire surfaces as
   transport labels, not role vocabulary.
 
+## Language
+
+- Address the **arbiter** in **Chinese (中文)**: pane output, gate presentations, summaries, and
+  direct arbiter-facing explanations.
+- Use **English** for everything else: 玄↔素 mailbox handoffs, commit messages, code, code
+  comments, and newly generated docs/artifacts.
+- Existing bilingual user docs keep their convention: `README.md` is Chinese and `README.en.md` is
+  English.
+
 ## Files Are Memory
 
 Primary tracked design artifacts live under `docs/design/roundtable/`:
