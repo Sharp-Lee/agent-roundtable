@@ -16,10 +16,16 @@ A tiny relay that removes the **copy-paste between two interactive agent CLIs**.
 
 Three parties collaborate on one project:
 
-- **arbiter** — you. You shape the idea, approve the requirements (one gate), and arbitrate
-  deadlocks. Otherwise you stay out of the way.
-- **lead** — Claude Code. Plans, drafts requirements, assigns tasks, reviews. **Never edits code.**
-- **impl** — Codex. Challenges first, then is the **only** implementer.
+- **arbiter** — you. You shape the idea, approve the three gates (direction, final form, detailed
+  requirements), and arbitrate deadlocks. Otherwise you stay out of the way.
+- **玄** — Claude Code. Holds the document pen: synthesizes direction, designs final form, expands
+  requirements, assigns tasks, and reviews. **Never edits code.**
+- **素** — Codex. Challenges first throughout the process; once the build loop starts, is the
+  **only** implementer.
+
+The compatibility layer still uses `lead` / `impl` as wire labels: mailbox file names, `FROM:`
+values, environment variables, and legacy CLI aliases keep those tokens; user-facing roles,
+operating contracts, and pane titles use **玄/素**.
 
 It does exactly one thing: relays handoff messages between the two CLI panes so you never copy
 text between them again. It does **not** touch the agents' model loop or native abilities — the
@@ -32,24 +38,31 @@ real Claude Code and real Codex clients run unchanged in real terminals.
 - Agents hand off by *writing a message to a mailbox file*. That write is an explicit,
   unambiguous "my turn is done" event — we never scrape terminal output to guess completion
   (the fragile part of heavier tools).
-- The durable state (`requirements.md`, `channel.md`, `decisions.md`) lives on disk. If a pane
-  dies, start a fresh one and tell it to re-read those files — no session-resume machinery needed.
+- Durable design artifacts live under `docs/design/roundtable/`; runtime handoff state lives under
+  `.roundtable/`. If a pane dies, start a fresh one and tell it to re-read those files — no
+  session-resume machinery needed.
 
 ## The workflow
 
 ```
-Phase 0  Roundtable      idea -> sharp questions -> shaped problem        (you + lead + impl)
-Phase 1  Requirements    lead drafts -> impl reviews adversarially -> iterate
-                         both sign off  ->  ╔═ Gate A: you approve requirements ═╗
-Phase 2  Build loop      per requirement: assign -> challenge -> impl implements+commits
-                         -> lead reviews -> both agree -> lead commits status -> next
-                         (no gate; autonomous)
+Phase 0  Idea roundtable       raw idea -> three-party shaping -> direction statement  (you + 玄 + 素)
+                               ╔═ Gate 0: direction lock ═╗
+Phase 1  Final-form design     玄 drafts architecture/flow -> 素 adversarial review
+                               -> one-shot panel -> ╔═ Gate 1: final-form confirmation ═╗
+Phase 2  Detailed requirements expand flow nodes into atomic requirements -> pending=0
+                               -> ╔═ Gate 2: detailed requirements approval ═╗
+Phase 3  Build loop            per requirement: assign -> challenge -> 素 implements+commits
+                               -> 玄 reviews -> both agree -> 玄 commits status -> next
                          deadlock >3 rounds / real blocker / rate limit -> escalate to you
                          all items done -> halt and report
 ```
 
+The panel is not a resident agent: it is mandatory in Phase 1, optional in Phase 2 for risky or
+complex requirements, one-shot, internal to the document holder's tooling, and adds no relay route
+or tmux pane.
+
 The shared rules (channel, message format, commit ownership, guardrails) live in
-`prompts/protocol.md`; the role-specific duties are in `prompts/lead.md` and `prompts/impl.md`.
+`prompts/protocol.md`; the role-specific duties are in `prompts/xuan.md` and `prompts/su.md`.
 All three are copied into each project so the agents read them as their operating contract.
 
 ## Requirements
@@ -63,23 +76,31 @@ All three are copied into each project so the agents read them as their operatin
 export PATH="$PWD/bin:$PATH"
 
 cd /path/to/your/dev/project
-roundtable init            # scaffolds .roundtable/ (requirements, channel, decisions, prompts)
-roundtable start           # opens tmux workbench: top lead|impl, bottom command|relay
+roundtable init            # scaffolds docs/design/roundtable/ + .roundtable/ runtime state
+roundtable start           # opens tmux workbench: top 玄|素, bottom command|relay
 ```
 
 `rt` is a built-in shorthand for `roundtable` (e.g. `rt start`, `rt list`, `rt stop`).
+
+| Command | Purpose |
+|---|---|
+| `roundtable init [dir]` | scaffold docs design artifacts and `.roundtable/` runtime state |
+| `roundtable start [dir]` | start the 玄/素/command/relay workbench |
+| `roundtable kickoff [xuan|su]` | re-send kickoff; `lead|impl` are legacy wire aliases only |
+| `roundtable stop [dir]` | stop this project's tmux session |
+| `roundtable list` | list running roundtable sessions |
 
 ## Workbench, Mouse, And Popups
 
 By default, `roundtable start` creates a 4-pane workbench:
 
 ```text
-top:    lead (Claude Code) | impl (Codex)
+top:    玄 (Claude Code) | 素 (Codex)
 bottom: command shell      | relay watcher
 ```
 
 The bottom-left pane is a normal shell in the project directory. The bottom-right pane is the visible relay
-watcher. `RT_LAYOUT=classic` restores the old layout: lead on the left, impl on the right, and a separate
+watcher. `RT_LAYOUT=classic` restores the old layout: 玄 on the left, 素 on the right, and a separate
 `relay` window. If the terminal is below roughly `100x30`, start warns but proceeds best-effort.
 
 **tmux mouse is off by default** (`RT_MOUSE=0`), so text selection and copy behave exactly as usual. When you
@@ -110,8 +131,8 @@ session may still need them. The file popup does not implement a picker or file 
 managers run with your own config and may allow navigation or mutation.
 
 On first start, the **kickoff is automatic**: once each pane's CLI output looks settled,
-`roundtable start` sends it the matching operating contract (`protocol.md` + `lead.md`/`impl.md`).
-You only need to give your raw idea to the **left (lead)** pane — the relay takes over from there.
+`roundtable start` sends it the matching operating contract (`protocol.md` + `xuan.md`/`su.md`).
+You only need to give your raw idea to the **left (玄)** pane — the relay takes over from there.
 
 Automatic kickoff assumes both CLIs are already authenticated and configured, and that they land on
 their normal main input prompt. First-run login, model-selection, trust-folder, update notices, or
@@ -121,23 +142,25 @@ other setup prompts can also look visually "settled"; complete those flows first
 If auto-send mis-fires (e.g. it lands in a pane that wasn't fully ready), there are two fallbacks:
 
 - once the CLI is fully up, run `roundtable kickoff` to **re-send** to both panes (or
-  `roundtable kickoff lead|impl` for just one) — easier than re-pasting;
+  `roundtable kickoff xuan|su` for just one; `lead|impl` remain legacy wire aliases) — easier
+  than re-pasting;
 - or **copy/paste** from the files `start` writes: `.roundtable/kickoff-lead.txt` /
   `kickoff-impl.txt` (`cat` them from inside tmux — readable even after you've attached).
 
-The kickoff is also **state-aware**: it tells each pane to re-read `requirements.md`, `channel.md`
-and `decisions.md`, so re-starting a project mid-flight resumes from the last handoff (on a fresh
+The kickoff is also **state-aware**: it tells each pane to re-read `.roundtable/_idea.md`,
+`docs/design/roundtable/{architecture,flow,requirements,decisions}.md`, `.roundtable/channel.md`,
+and its inbox, so re-starting a project mid-flight resumes from the last handoff (on a fresh
 project those artifacts are empty templates, so it just waits for your idea). If you only detached
 from a still-running session, no kickoff is needed — just `tmux attach` back.
 
 Set `AUTO_KICKOFF=0` to do it manually instead (paste these once each pane is up):
 
-1. Left pane (Claude Code): `Read .roundtable/prompts/protocol.md then .roundtable/prompts/lead.md — that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is in progress, continue from the last handoff; otherwise acknowledge and wait for my idea.`
-2. Right pane (Codex): `Read .roundtable/prompts/protocol.md then .roundtable/prompts/impl.md — that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is in progress, continue from the last handoff; otherwise acknowledge and wait.`
-3. Give your raw idea to the **left (lead)** pane.
+1. Left pane (Claude Code): run `roundtable kickoff xuan`, or paste `.roundtable/kickoff-lead.txt`.
+2. Right pane (Codex): run `roundtable kickoff su`, or paste `.roundtable/kickoff-impl.txt`.
+3. Give your raw idea to the **left (玄)** pane.
 
-Approve requirements at Gate A by typing into the lead pane:
-`ARBITER: approved requirements v1`
+Approve or reject Gate 0/1/2 in the **玄** pane; 玄 records the verdict in
+`docs/design/roundtable/decisions.md`.
 
 ## Lifecycle: stop, restart, resume
 
@@ -151,13 +174,14 @@ keep their full context. Reconnect any time with `tmux attach -t <session>` (fin
 **Stop.** From the project dir:
 
 ```bash
-roundtable stop      # kills this project's tmux session (lead, impl, command, relay)
+roundtable stop      # kills this project's tmux session (玄, 素, command, relay)
 ```
 
-This ends the CLI processes. The durable artifacts under `.roundtable/` are untouched, so the
-work is fully recoverable on the next start.
+This ends the CLI processes. The design artifacts under `docs/design/roundtable/` and the runtime
+handoff state under `.roundtable/` are untouched, so the work is fully recoverable on the next
+start.
 
-**Relay pane killed.** If the bottom-right relay pane in the workbench is manually killed, lead/impl can still
+**Relay pane killed.** If the bottom-right relay pane in the workbench is manually killed, 玄/素 can still
 look healthy, but handoffs will no longer be relayed. Recovery is still:
 
 ```bash
@@ -171,10 +195,11 @@ roundtable start
 ```
 
 Each pane gets a brand-new CLI process (no memory of the old one), so the auto-kickoff re-sends the
-operating contract *and* tells each side to re-read `requirements.md`, `channel.md`, and
-`decisions.md`. A project that was mid-build resumes from the last handoff; a fresh project just
-waits for your idea. This is the normal path after a `stop`, a crash, a machine reboot, or a CLI
-update — the artifacts are the resume point, so you essentially never re-paste anything.
+operating contract *and* tells each side to re-read the docs design artifacts,
+`.roundtable/channel.md`, and its inbox. A project that was mid-build resumes from the last
+handoff; a fresh project just waits for your idea. This is the normal path after a `stop`, a crash,
+a machine reboot, or a CLI update — the artifacts are the resume point, so you essentially never
+re-paste anything.
 
 **Run several at once.** Each project gets its own session (`roundtable-<name>-<hash>`), so
 multiple roundtables coexist. `roundtable list` shows the running ones.
@@ -192,16 +217,20 @@ roundtable stop && roundtable start      # in your project dir
 
 If `prompts/` changed, re-run `roundtable init` in the project to refresh the copies under
 `.roundtable/prompts/` (init refreshes prompts and mailboxes but never clobbers your
-requirements/channel/decisions).
+existing docs design artifacts or channel).
 
 **Starting a *different*, unrelated task in the same directory (rare).** `start` always resumes the
 existing artifacts, so to begin a clean, unrelated roundtable in a directory that already holds a
-finished project's artifacts, reset the three durable files yourself — **back them up first**, since
-they are not auto-saved:
+finished project's artifacts, reset the design artifacts and runtime state yourself — **back them
+up first**, since they are not auto-saved:
 
 ```bash
-mkdir -p .roundtable/_backup && cp .roundtable/{requirements,channel,decisions}.md .roundtable/_backup/
-cp templates/{requirements,channel,decisions}.md .roundtable/
+stamp=$(date +%Y%m%d%H%M%S)
+mkdir -p docs/design/_backup .roundtable-backup
+cp -R docs/design/roundtable docs/design/_backup/roundtable.$stamp
+cp -R .roundtable .roundtable-backup/roundtable.$stamp
+rm -rf docs/design/roundtable .roundtable
+roundtable init
 ```
 
 In normal one-directory-per-project use you never need this; prefer a separate directory for a
@@ -211,19 +240,22 @@ separate project.
 
 | Path (in your project) | Purpose | Commit? |
 |---|---|---|
-| `.roundtable/requirements.md` | the agreed spec + work list | yes |
-| `.roundtable/channel.md` | durable transcript of every handoff | yes |
-| `.roundtable/decisions.md` | resolved disagreements + rationale | yes |
-| `.roundtable/prompts/` | the role contracts the agents read | yes |
-| `.roundtable/to-lead.md`, `to-impl.md` | transient mailboxes | no (gitignored) |
-| `.roundtable/kickoff-lead.txt`, `kickoff-impl.txt` | kickoff text saved at start (manual fallback) | no (gitignored) |
+| `docs/design/roundtable/architecture.md` | Gate 1 locked overall architecture | yes |
+| `docs/design/roundtable/flow.md` | Gate 1 locked runtime business flow | yes |
+| `docs/design/roundtable/requirements.md` | Gate 2 locked detailed requirements + work list | yes |
+| `docs/design/roundtable/decisions.md` | gate verdicts, resolved disagreements + rationale | yes |
+| `.roundtable/_idea.md` | Gate 0 direction statement | no (runtime state) |
+| `.roundtable/channel.md` | relay transcript of every handoff | no (runtime state) |
+| `.roundtable/prompts/` | copied role contracts the agents read | no (runtime state) |
+| `.roundtable/to-lead.md`, `to-impl.md` | wire-named transient mailboxes | no (gitignored) |
+| `.roundtable/kickoff-lead.txt`, `kickoff-impl.txt` | wire-named kickoff text saved at start (manual fallback) | no (gitignored) |
 
 ## Env overrides
 
 | Var | Default | Meaning |
 |---|---|---|
-| `CLAUDE_CMD` | `claude` | command to start the lead CLI |
-| `CODEX_CMD` | `codex` | command to start the impl CLI |
+| `CLAUDE_CMD` | `claude` | command to start the 玄 CLI |
+| `CODEX_CMD` | `codex` | command to start the 素 CLI |
 | `SESSION` | per-project `roundtable-<name>-<hash>` | override the tmux session name |
 | `RT_LAYOUT` | `workbench` | `workbench` = 4-pane layout; `classic` = old 2 panes + relay window |
 | `RT_MOUSE` | `0` | `1` = start with tmux mouse on; off by default, toggle at runtime with `prefix+v` |
