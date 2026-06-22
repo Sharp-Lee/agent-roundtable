@@ -33,7 +33,7 @@
 | G9 | 产物与文件模型（R-F-1..5）| 新增 `templates/architecture.md`、`flow.md`;升级 `templates/requirements.md`;沿用 decisions/channel;落点 B | — | done |
 | G10 | 重启恢复（R-RR-1..3）| 从文件重建阶段位置;🔒 为权威;pending/状态驱动续做 | G9 | done |
 | G11 | 角色契约改名 玄/素（R-RC-1..4）| `lead.md→xuan.md`、`impl.md→su.md`;阶段职责表;protocol 增补共享规则;challenge-first 全程 | G1-G10 | done |
-| G12 | 对外更新 README/kickoff（R-EX-1..3）| README 中/英同步四阶段三关卡;kickoff 引导新流程;术语一致性自检 | G11 | todo |
+| G12 | 对外更新 README/kickoff（R-EX-1..3）| README 中/英同步四阶段三关卡;kickoff 引导新流程;术语一致性自检 | G11 | doing |
 
 ## 4. Constraints & assumptions
 - 零第三方依赖(tmux + python3 stdlib);引擎(relay + orchestrator)保持极小、几乎不改。
