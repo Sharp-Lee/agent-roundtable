@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # roundtable -- a tiny, dependency-light relay for a 3-party agent workflow.
 #
-#   you (arbiter) + Claude Code (lead) + Codex (impl)
+#   you (arbiter) + Claude Code (玄 / lead wire) + Codex (素 / impl wire)
 #
 # It does ONE thing: removes the copy-paste between the two CLI panes by
 # relaying mailbox-file writes between them (see bin/relay.py). It never
@@ -11,13 +11,13 @@
 #   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
 #   roundtable start  [dir]   Launch the per-project tmux workbench and attach
 #   roundtable stop   [dir]   Kill this project's session (default: cwd)
-#   roundtable kickoff [lead|impl]  Re-send the kickoff prompt to a running session (default: both)
+#   roundtable kickoff [xuan|su|lead|impl]  Re-send the kickoff prompt (default: both)
 #   roundtable list           List running roundtable sessions
 #   roundtable selftest       Verify relay/layout/key checks on this machine (no real CLIs needed)
 #
 # Env overrides:
-#   CLAUDE_CMD (default: claude)   command to start the lead CLI
-#   CODEX_CMD  (default: codex)    command to start the impl CLI
+#   CLAUDE_CMD (default: claude)   command to start the 玄 CLI
+#   CODEX_CMD  (default: codex)    command to start the 素 CLI
 #   SESSION    (default: per-project roundtable-<name>-<hash>)
 #   RT_LAYOUT  (default: workbench)  workbench = 4 panes; classic = old 2 panes + relay window
 #   RT_MOUSE   (default: 0)        enable tmux mouse at start (off by default; toggle in-session with prefix+RT_MOUSE_KEY)
@@ -28,7 +28,7 @@
 #   AUTO_KICKOFF    (default: 1)   auto-send each pane its contract once the CLI is settled (0 = manual)
 #   KICKOFF_TIMEOUT (default: 30)  max seconds to wait per pane before giving up on auto-kickoff
 #
-# Default layout: top lead | impl, bottom command shell | relay watcher.
+# Default layout: top 玄 | 素, bottom command shell | relay watcher.
 # Prior behavior: RT_LAYOUT=classic roundtable start (mouse is now off by default).
 # Keys: prefix+g tips, prefix+e file view, prefix+v toggle mouse; RT_KEYS=0 or RT_*_KEY overrides.
 # If the visible relay pane is killed, recover with roundtable stop && roundtable start.
@@ -138,6 +138,28 @@ _relay_command() {
     "$(_shell_quote "$impl_pane")" \
     "$(_shell_quote "$TOOL_ROOT/bin/relay.py")" \
     "$(_shell_quote "[relay stopped] press enter to close")"
+}
+
+_role_wire() {
+  case "$1" in
+    lead|xuan) printf 'lead\n' ;;
+    impl|su) printf 'impl\n' ;;
+    *) return 1 ;;
+  esac
+}
+
+_role_contract() {
+  case "$(_role_wire "$1")" in
+    lead) printf 'xuan.md\n' ;;
+    impl) printf 'su.md\n' ;;
+  esac
+}
+
+_role_display() {
+  case "$(_role_wire "$1")" in
+    lead) printf '玄\n' ;;
+    impl) printf '素\n' ;;
+  esac
 }
 
 _tmux_supports_display_popup() {
@@ -303,10 +325,10 @@ Keys:
   prefix+$mouse_key  toggle mouse on/off
 
 Commands:
-  rt init [dir]          scaffold .roundtable/
+  rt init [dir]          scaffold docs/design/roundtable/ + .roundtable/
   rt start [dir]         launch the workbench
   rt stop [dir]          stop this project's session
-  rt kickoff [lead|impl] re-send kickoff prompts
+  rt kickoff [xuan|su]   re-send kickoff prompts (lead|impl legacy aliases)
   rt list                list running roundtable sessions
   rt selftest            verify relay/layout/key checks
 
@@ -326,7 +348,7 @@ Environment:
 Reminders:
   Detach from tmux: prefix+d
   Relay stopped or killed: rt stop && rt start
-  Kickoff mis-fired: rt kickoff [lead|impl]
+  Kickoff mis-fired: rt kickoff [xuan|su]
   Typing does nothing / keys like 'f' show "(jump to forward)"?
     The wheel left you in copy-mode -- press q or Esc to get back to input.
 EOF
@@ -377,17 +399,21 @@ cmd_popup() {
   esac
 }
 
-# Single source of truth for the kickoff prompt. role = lead | impl.
+# Single source of truth for the kickoff prompt.
+# role accepts display aliases xuan|su and legacy wire labels lead|impl.
 # State-aware: also re-read the durable artifacts so a fresh pane starts clean
 # (artifacts are empty templates) or resumes an in-progress project.
 _kickoff_text() {
-  local role="$1" contract tail
-  if [ "$role" = "lead" ]; then
-    contract="lead.md";  tail="otherwise acknowledge and wait for my idea."
+  local role="$1" wire contract display tail
+  wire="$(_role_wire "$role")" || die "unknown role: $role"
+  contract="$(_role_contract "$wire")"
+  display="$(_role_display "$wire")"
+  if [ "$wire" = "lead" ]; then
+    tail="otherwise ask the arbiter for the idea and lead Phase 0."
   else
-    contract="impl.md";  tail="otherwise acknowledge and wait."
+    tail="otherwise acknowledge and wait."
   fi
-  printf 'Read .roundtable/prompts/protocol.md then .roundtable/prompts/%s -- that is your operating contract. Then read .roundtable/requirements.md, .roundtable/channel.md and .roundtable/decisions.md to restore any prior state. If work is already in progress, continue from the last handoff; %s' "$contract" "$tail"
+  printf 'You are %s. Read .roundtable/prompts/protocol.md then .roundtable/prompts/%s -- that is your operating contract. Restore state from .roundtable/_idea.md, docs/design/roundtable/architecture.md, docs/design/roundtable/flow.md, docs/design/roundtable/requirements.md, docs/design/roundtable/decisions.md, .roundtable/channel.md, and your inbox. If docs/design/roundtable/requirements.md or decisions.md is missing but legacy .roundtable/requirements.md or decisions.md exists, use the legacy file once and migrate it before continuing. Workflow: Phase 0 idea roundtable -> Gate 0; Phase 1 final-form design -> Gate 1; Phase 2 detailed requirements -> Gate 2; Phase 3 build loop. Panels are one-shot internal reviews, not relay participants. If work is already in progress, continue from the last handoff; %s' "$display" "$contract" "$tail"
 }
 
 # Stable, unique-per-absolute-path, readable tmux session name for a project dir.
@@ -403,22 +429,44 @@ cmd_init() {
   local target="${1:-$PWD}"
   target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
   local rt="$target/.roundtable"
-  mkdir -p "$rt/prompts"
+  local design="$target/docs/design/roundtable"
+  mkdir -p "$rt/prompts" "$design"
 
-  # Durable artifacts (do not clobber if they already exist).
-  [ -f "$rt/requirements.md" ] || cp "$TOOL_ROOT/templates/requirements.md" "$rt/requirements.md"
-  [ -f "$rt/decisions.md" ]    || cp "$TOOL_ROOT/templates/decisions.md"    "$rt/decisions.md"
-  [ -f "$rt/channel.md" ]      || cp "$TOOL_ROOT/templates/channel.md"      "$rt/channel.md"
+  # Tracked design artifacts (do not clobber if they already exist).
+  [ -f "$design/architecture.md" ] || cp "$TOOL_ROOT/templates/architecture.md" "$design/architecture.md"
+  [ -f "$design/flow.md" ]         || cp "$TOOL_ROOT/templates/flow.md"         "$design/flow.md"
+  if [ ! -f "$design/requirements.md" ]; then
+    if [ -f "$rt/requirements.md" ]; then
+      cp "$rt/requirements.md" "$design/requirements.md"
+    else
+      cp "$TOOL_ROOT/templates/requirements.md" "$design/requirements.md"
+    fi
+  fi
+  if [ ! -f "$design/decisions.md" ]; then
+    if [ -f "$rt/decisions.md" ]; then
+      cp "$rt/decisions.md" "$design/decisions.md"
+    else
+      cp "$TOOL_ROOT/templates/decisions.md" "$design/decisions.md"
+    fi
+  fi
+
+  # Runtime handoff state (do not clobber durable history).
+  [ -f "$rt/_idea.md" ]   || printf '# Direction\n\n<Phase 0 direction statement; Gate 0 lock goes here.>\n' > "$rt/_idea.md"
+  [ -f "$rt/channel.md" ] || cp "$TOOL_ROOT/templates/channel.md" "$rt/channel.md"
 
   # Mailboxes (transient) + role contracts (always refreshed from the tool).
   : > "$rt/to-lead.md"
   : > "$rt/to-impl.md"
+  rm -f "$rt/prompts/lead.md" "$rt/prompts/impl.md"
   cp "$TOOL_ROOT/prompts/protocol.md" "$rt/prompts/protocol.md"
-  cp "$TOOL_ROOT/prompts/lead.md" "$rt/prompts/lead.md"
-  cp "$TOOL_ROOT/prompts/impl.md" "$rt/prompts/impl.md"
+  cp "$TOOL_ROOT/prompts/xuan.md" "$rt/prompts/xuan.md"
+  cp "$TOOL_ROOT/prompts/su.md" "$rt/prompts/su.md"
 
   cat > "$rt/.gitignore" <<'EOF'
-# Transient relay state -- not worth committing.
+# Runtime relay state -- design artifacts live in docs/design/roundtable/.
+_idea.md
+channel.md
+prompts/
 to-lead.md
 to-impl.md
 panes.env
@@ -428,7 +476,8 @@ kickoff-impl.txt
 EOF
 
   echo "Initialized roundtable in $rt"
-  echo "Durable (commit these):  requirements.md  decisions.md  channel.md  prompts/"
+  echo "Design artifacts (commit these):  docs/design/roundtable/{architecture,flow,requirements,decisions}.md"
+  echo "Runtime state (do not commit):     .roundtable/{_idea,channel,to-*,panes,kickoff,prompts}"
   echo "Next:  cd '$target' && roundtable start"
 }
 
@@ -493,8 +542,8 @@ cmd_start() {
       || start_fail "could not create relay window"
   fi
 
-  tmux select-pane -t "$lead_pane" -T lead || start_fail "could not title lead pane"
-  tmux select-pane -t "$impl_pane" -T impl || start_fail "could not title impl pane"
+  tmux select-pane -t "$lead_pane" -T 玄 || start_fail "could not title 玄 pane"
+  tmux select-pane -t "$impl_pane" -T 素 || start_fail "could not title 素 pane"
   if [ -n "$command_pane" ]; then
     tmux select-pane -t "$command_pane" -T command || start_fail "could not title command pane"
   fi
@@ -540,12 +589,12 @@ EOF
   # when auto-send mis-fires (a send can "succeed" yet land in a half-ready pane).
   printf '%s\n' "$lead_kick" > "$rt/kickoff-lead.txt" || start_fail "could not write kickoff-lead.txt"
   printf '%s\n' "$impl_kick" > "$rt/kickoff-impl.txt" || start_fail "could not write kickoff-impl.txt"
-  local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [lead|impl]', or copy from .roundtable/kickoff-{lead,impl}.txt"
+  local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [xuan|su]' (lead|impl legacy aliases), or copy from .roundtable/kickoff-{lead,impl}.txt"
   local layout_banner
   if [ "$layout" = "workbench" ]; then
-    layout_banner="TOP: lead (Claude Code) | impl (Codex)   BOTTOM: command shell | relay watcher"
+    layout_banner="TOP: 玄 (Claude Code) | 素 (Codex)   BOTTOM: command shell | relay watcher"
   else
-    layout_banner="LEFT: lead (Claude Code)   RIGHT: impl (Codex)   window 'relay': watcher"
+    layout_banner="LEFT: 玄 (Claude Code)   RIGHT: 素 (Codex)   window 'relay': watcher"
   fi
 
   if [ "$AUTO_KICKOFF" = "1" ]; then
@@ -556,19 +605,19 @@ EOF
       if _send_prompt "$lead_pane" "$lead_kick" "$sess"; then
         lead_sent=1
       else
-        echo "  (lead pane send failed -- paste its kickoff manually)"
+        echo "  (玄 pane send failed -- paste its kickoff manually)"
       fi
     else
-      echo "  (lead pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
+      echo "  (玄 pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
     fi
     if _wait_pane_ready "$impl_pane" "$KICKOFF_TIMEOUT" "$sess"; then
       if _send_prompt "$impl_pane" "$impl_kick" "$sess"; then
         impl_sent=1
       else
-        echo "  (impl pane send failed -- paste its kickoff manually)"
+        echo "  (素 pane send failed -- paste its kickoff manually)"
       fi
     else
-      echo "  (impl pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
+      echo "  (素 pane did not settle in ${KICKOFF_TIMEOUT}s -- paste its kickoff manually)"
     fi
     if [ "$lead_sent" -eq 1 ] && [ "$impl_sent" -eq 1 ]; then
     cat <<EOF
@@ -577,7 +626,7 @@ Kickoff sent to both panes.
 $(_status_banner "$layout_banner" "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
 
 $fallback
-Now just give your raw idea to the LEFT (lead) pane. The relay takes over from there.
+Now just give your raw idea to the LEFT (玄) pane. The relay takes over from there.
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
     else
@@ -600,7 +649,7 @@ EOF
       fi
       cat <<EOF
 
-After both panes have their operating contract, give your raw idea to the LEFT (lead) pane.
+After both panes have their operating contract, give your raw idea to the LEFT (玄) pane.
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
 EOF
     fi
@@ -611,11 +660,11 @@ Roundtable session '$sess' is up.  (AUTO_KICKOFF=0 -- manual kickoff)
 $(_status_banner "$layout_banner" "$mouse_enabled" "$RT_MOUSE_KEY" "$keys_enabled")
 
 One-time kickoff:
-  1. In the LEFT  pane, once Claude Code is ready, send it:
+  1. In the LEFT  玄 pane, once Claude Code is ready, send it:
         $lead_kick
-  2. In the RIGHT pane, once Codex is ready, send it:
+  2. In the RIGHT 素 pane, once Codex is ready, send it:
         $impl_kick
-  3. Then give your raw idea to the LEFT (lead) pane. The relay takes over from there.
+  3. Then give your raw idea to the LEFT (玄) pane. The relay takes over from there.
 
 $fallback
 Attaching now (detach with Ctrl-b d; stop with 'roundtable stop').
@@ -642,10 +691,15 @@ cmd_stop() {
 # Re-send the kickoff prompt to a running session's panes. Use when auto-kickoff
 # mis-fired (landed in a half-ready pane) -- run it once the CLI is fully up.
 #   roundtable kickoff            both panes
-#   roundtable kickoff lead|impl  just that pane
+#   roundtable kickoff xuan|su    just that pane (lead|impl legacy aliases)
 cmd_kickoff() {
   local only="${1:-both}"
-  case "$only" in lead|impl|both) ;; *) die "usage: roundtable kickoff [lead|impl]" ;; esac
+  case "$only" in
+    both) ;;
+    xuan|lead) only="lead" ;;
+    su|impl) only="impl" ;;
+    *) die "usage: roundtable kickoff [xuan|su|lead|impl]" ;;
+  esac
   local envfile="$PWD/.roundtable/panes.env"
   [ -f "$envfile" ] || die "no session recorded for this project -- run 'roundtable start' first (from the project dir)"
   local sess lead_pane impl_pane
@@ -658,11 +712,11 @@ cmd_kickoff() {
   tmux has-session -t "$sess" 2>/dev/null || die "session '$sess' is not running -- 'roundtable start' first"
   if [ "$only" = "lead" ] || [ "$only" = "both" ]; then
     _send_prompt "$lead_pane" "$(_kickoff_text lead)" "$sess" || die "pane '$lead_pane' is stale or outside session '$sess' -- restart the session"
-    echo "re-sent kickoff to lead ($lead_pane)"
+    echo "re-sent kickoff to 玄 ($lead_pane)"
   fi
   if [ "$only" = "impl" ] || [ "$only" = "both" ]; then
     _send_prompt "$impl_pane" "$(_kickoff_text impl)" "$sess" || die "pane '$impl_pane' is stale or outside session '$sess' -- restart the session"
-    echo "re-sent kickoff to impl ($impl_pane)"
+    echo "re-sent kickoff to 素 ($impl_pane)"
   fi
 }
 
@@ -699,6 +753,26 @@ _selftest_assert_pane_id() {
   esac
 }
 
+_selftest_assert_file() {
+  local label="$1" path="$2"
+  if [ -f "$path" ]; then
+    _selftest_pass "$label"
+  else
+    echo "  [FAIL] $label (missing '$path')"
+    return 1
+  fi
+}
+
+_selftest_assert_no_file() {
+  local label="$1" path="$2"
+  if [ ! -e "$path" ]; then
+    _selftest_pass "$label"
+  else
+    echo "  [FAIL] $label (unexpected '$path')"
+    return 1
+  fi
+}
+
 # Verify the relay mechanism end-to-end with throwaway tmux + dummy panes
 # (no real CLIs needed). Asserts: handoff reaches channel.md, and the nudge
 # keystrokes are delivered to the target pane.
@@ -706,17 +780,28 @@ cmd_selftest() {
   command -v tmux >/dev/null 2>&1 || die "tmux is required"
   command -v python3 >/dev/null 2>&1 || die "python3 is required"
 
-  local proj sess rt got relay_pid rc=0
+  local proj legacy_proj sess rt design legacy_rt legacy_design got relay_pid rc=0
   local lead_pane impl_pane layout_sess foreign_sess
   local layout_lead layout_impl layout_command layout_relay foreign_pane
   proj="$(mktemp -d)"
+  legacy_proj="$(mktemp -d)"
   sess="rt_selftest_$$"
   layout_sess="${sess}_layout"
   foreign_sess="${sess}_foreign"
   rt="$proj/.roundtable"
+  design="$proj/docs/design/roundtable"
   got="$proj/impl_got.txt"
 
   cmd_init "$proj" >/dev/null
+
+  legacy_rt="$legacy_proj/.roundtable"
+  legacy_design="$legacy_proj/docs/design/roundtable"
+  mkdir -p "$legacy_rt/prompts"
+  printf 'legacy requirements sentinel\n' > "$legacy_rt/requirements.md"
+  printf 'legacy decisions sentinel\n' > "$legacy_rt/decisions.md"
+  printf 'stale lead contract\n' > "$legacy_rt/prompts/lead.md"
+  printf 'stale impl contract\n' > "$legacy_rt/prompts/impl.md"
+  cmd_init "$legacy_proj" >/dev/null
 
   tmux kill-session -t "$sess" 2>/dev/null || true
   tmux kill-session -t "$layout_sess" 2>/dev/null || true
@@ -738,6 +823,42 @@ cmd_selftest() {
   sleep 0.3
 
   echo "roundtable selftest:"
+
+  _selftest_assert_file "init creates architecture design artifact" "$design/architecture.md" || rc=1
+  _selftest_assert_file "init creates flow design artifact" "$design/flow.md" || rc=1
+  _selftest_assert_file "init creates docs-side requirements" "$design/requirements.md" || rc=1
+  _selftest_assert_file "init creates docs-side decisions" "$design/decisions.md" || rc=1
+  _selftest_assert_file "init creates runtime idea file" "$rt/_idea.md" || rc=1
+  _selftest_assert_file "init creates runtime channel" "$rt/channel.md" || rc=1
+  _selftest_assert_file "init copies protocol contract" "$rt/prompts/protocol.md" || rc=1
+  _selftest_assert_file "init copies xuan contract" "$rt/prompts/xuan.md" || rc=1
+  _selftest_assert_file "init copies su contract" "$rt/prompts/su.md" || rc=1
+  _selftest_assert_no_file "init does not create legacy requirements primary" "$rt/requirements.md" || rc=1
+  _selftest_assert_no_file "init does not create legacy decisions primary" "$rt/decisions.md" || rc=1
+  _selftest_assert_no_file "init does not copy legacy lead contract" "$rt/prompts/lead.md" || rc=1
+  _selftest_assert_no_file "init does not copy legacy impl contract" "$rt/prompts/impl.md" || rc=1
+  case "$(_kickoff_text lead)" in
+    *".roundtable/prompts/xuan.md"*docs/design/roundtable/requirements.md*) _selftest_pass "lead kickoff references xuan contract and docs baseline" ;;
+    *) _selftest_fail "lead kickoff references xuan contract and docs baseline" || true; rc=1 ;;
+  esac
+  case "$(_kickoff_text su)" in
+    *".roundtable/prompts/su.md"*docs/design/roundtable/requirements.md*) _selftest_pass "su kickoff alias references su contract and docs baseline" ;;
+    *) _selftest_fail "su kickoff alias references su contract and docs baseline" || true; rc=1 ;;
+  esac
+  _selftest_assert_eq "xuan alias maps to lead wire role" "lead" "$(_role_wire xuan)" || rc=1
+  _selftest_assert_eq "su alias maps to impl wire role" "impl" "$(_role_wire su)" || rc=1
+  if grep -q "legacy requirements sentinel" "$legacy_design/requirements.md" 2>/dev/null; then
+    _selftest_pass "init migrates legacy requirements to docs"
+  else
+    echo "  [FAIL] init did not migrate legacy requirements"; rc=1
+  fi
+  if grep -q "legacy decisions sentinel" "$legacy_design/decisions.md" 2>/dev/null; then
+    _selftest_pass "init migrates legacy decisions to docs"
+  else
+    echo "  [FAIL] init did not migrate legacy decisions"; rc=1
+  fi
+  _selftest_assert_no_file "init removes stale legacy lead contract" "$legacy_rt/prompts/lead.md" || rc=1
+  _selftest_assert_no_file "init removes stale legacy impl contract" "$legacy_rt/prompts/impl.md" || rc=1
 
   local popup_command popup_existing
   popup_command="RT_POPUP_SENTINEL=rt-popup:tips $(_shell_quote "$TOOL_ROOT/bin/roundtable") _popup tips"
@@ -766,13 +887,18 @@ cmd_selftest() {
   else
     echo "  [FAIL] impl pane did not receive the nudge"; rc=1
   fi
+  if grep -q ".roundtable/prompts/su.md" "$got" 2>/dev/null && ! grep -q ".roundtable/prompts/impl.md" "$got" 2>/dev/null; then
+    _selftest_pass "relay nudge points to su contract"
+  else
+    echo "  [FAIL] relay nudge did not point to su contract"; rc=1
+  fi
 
   if layout_lead="$(_new_pane "layout lead pane" new-session -d -s "$layout_sess" -x 200 -y 50)" &&
     layout_command="$(_new_pane "layout command pane" split-window -v -l 33% -t "$layout_lead")" &&
     layout_impl="$(_new_pane "layout impl pane" split-window -h -t "$layout_lead")" &&
     layout_relay="$(_new_pane "layout relay pane" split-window -h -t "$layout_command")"; then
-    tmux select-pane -t "$layout_lead" -T lead
-    tmux select-pane -t "$layout_impl" -T impl
+    tmux select-pane -t "$layout_lead" -T 玄
+    tmux select-pane -t "$layout_impl" -T 素
     tmux select-pane -t "$layout_command" -T command
     tmux select-pane -t "$layout_relay" -T relay
     _selftest_assert_pane_id "workbench captures lead %N id" "$layout_lead" || rc=1
@@ -780,7 +906,7 @@ cmd_selftest() {
     _selftest_assert_pane_id "workbench captures command %N id" "$layout_command" || rc=1
     _selftest_assert_pane_id "workbench captures relay %N id" "$layout_relay" || rc=1
     _selftest_assert_eq "workbench builds four panes" "4" "$(tmux list-panes -t "$layout_sess" | wc -l | tr -d ' ')" || rc=1
-    _selftest_assert_eq "workbench pane titles" "lead impl command relay" "$(printf '%s %s %s %s' "$(tmux display-message -p -t "$layout_lead" '#{pane_title}')" "$(tmux display-message -p -t "$layout_impl" '#{pane_title}')" "$(tmux display-message -p -t "$layout_command" '#{pane_title}')" "$(tmux display-message -p -t "$layout_relay" '#{pane_title}')")" || rc=1
+    _selftest_assert_eq "workbench pane titles" "玄 素 command relay" "$(printf '%s %s %s %s' "$(tmux display-message -p -t "$layout_lead" '#{pane_title}')" "$(tmux display-message -p -t "$layout_impl" '#{pane_title}')" "$(tmux display-message -p -t "$layout_command" '#{pane_title}')" "$(tmux display-message -p -t "$layout_relay" '#{pane_title}')")" || rc=1
 
     foreign_pane="$(_new_pane "foreign pane" new-session -d -s "$foreign_sess" -x 80 -y 24)"
     if _pane_belongs_to_session "$layout_sess" "$layout_lead"; then
@@ -823,7 +949,7 @@ PY
   tmux kill-session -t "$sess" 2>/dev/null || true
   tmux kill-session -t "$layout_sess" 2>/dev/null || true
   tmux kill-session -t "$foreign_sess" 2>/dev/null || true
-  rm -rf "$proj"
+  rm -rf "$proj" "$legacy_proj"
   if [ "$rc" -eq 0 ]; then
     echo "  => roundtable selftest OK on this machine."
   else
@@ -844,17 +970,18 @@ main() {
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
-  init  [dir]         scaffold .roundtable/ (default: current directory)
+  init  [dir]         scaffold docs/design/roundtable/ + .roundtable/
   start [dir]         launch the 4-pane tmux workbench and attach
   stop  [dir]         kill this project's session (default: current directory)
-  kickoff [lead|impl] re-send the kickoff prompt to a running session (default: both)
+  kickoff [xuan|su]   re-send the kickoff prompt (default: both; lead|impl legacy aliases)
   list                list running roundtable sessions
   selftest            verify relay/layout/key checks on this machine (no real CLIs needed)
 
 Each project gets its own session (roundtable-<name>-<hash>), so multiple
 roundtables run concurrently. Override the name with SESSION=... if needed.
 
-Default layout: top lead | impl, bottom command shell | relay watcher.
+Default layout: top 玄 | 素, bottom command shell | relay watcher.
+Wire labels remain lead|impl for mailbox/env compatibility; user-facing contracts are xuan|su.
 Keys: prefix+g tips, prefix+e file view, prefix+v toggle mouse. Env: RT_LAYOUT=classic,
 RT_MOUSE=1 (start with mouse on; off by default), RT_KEYS=0,
 RT_TIPS_KEY=<key>, RT_FILE_KEY=<key>, RT_MOUSE_KEY=<key>.

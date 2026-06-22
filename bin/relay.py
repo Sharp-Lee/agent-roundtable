@@ -78,6 +78,10 @@ def _append_transcript(channel: Path, *, frm: str, to: str, body: str) -> None:
         handle.write(block)
 
 
+def _contract_for_wire_role(role: str) -> str:
+    return {"lead": "xuan.md", "impl": "su.md"}.get(role, f"{role}.md")
+
+
 def main() -> int:
     root = Path(_env("ROUNDTABLE_DIR")).expanduser().resolve()
     session = _env("SESSION")
@@ -115,7 +119,7 @@ def main() -> int:
                 _append_transcript(channel, frm=frm, to=to, body=body)
                 nudge = (
                     f"[roundtable] New handoff in {inbox_rel}. "
-                    f"Read it and act per .roundtable/prompts/{to}.md. "
+                    f"Read it and act per .roundtable/prompts/{_contract_for_wire_role(to)}. "
                     "Do not poll; when done, write your reply to your outbox and stop."
                 )
                 if _send_keys(session, pane, nudge):
