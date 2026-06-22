@@ -22,17 +22,17 @@
 
 | # | Requirement(覆盖的 R-编号) | Acceptance criteria | Depends on | Status |
 |---|------------------------------|---------------------|------------|--------|
-| G1 | Phase 0 想法圆桌契约（R-P0-1..4）| 三方打磨;方向落 `_idea.md`;方向陈述含 5 要素(含 scope 非目标);可触发关卡 0 | — | doing |
-| G2 | 关卡 0 方向锁定（R-G0-1..3）| 自包含呈现;通过/打回落 `decisions.md`;通过即"🔒方向",改方向须回关卡 0 | G1 | doing |
-| G3 | Phase 1 最终形态设计（R-P1-1..6）| 玄持笔产 `architecture.md`+`flow.md`(Mermaid,节点=业务步骤);在冻结边界内;玄×素对抗回合;收敛信号 | G2,G9 | doing |
-| G4 | 专项评审 panel 机制（R-P4-1..4）| ②强制/③按需触发;一次性、不碰 relay、不增 pane;lens 按需选;发现回流归并 | — | doing |
-| G5 | 关卡 1 最终形态确认（R-G1-1..3）| 只读可判;通过/打回(可退关卡 0)落 `decisions.md`;通过即"🔒最终形态" | G3,G4 | doing |
-| G6 | Phase 2 详细需求（R-P2-1..6）| 拆解源=flow 节点(n:1);7 字段完备;按字段分工;覆盖 100%(pending 门);按组推进 | G5 | doing |
-| G7 | 关卡 2 详细需求批准（R-G2-1..3）| pending=0 前提;批准/精确打回落 `decisions.md`;批准即"🔒基线" | G6 | doing |
-| G8 | Phase 3 构建循环（R-P3-1..4）| 沿用现循环+重编号;输入=已锁基线(commit 回指 R-编号);玄/素改名;自治/升级/完成 | G7 | doing |
-| G9 | 产物与文件模型（R-F-1..5）| 新增 `templates/architecture.md`、`flow.md`;升级 `templates/requirements.md`;沿用 decisions/channel;落点 B | — | doing |
-| G10 | 重启恢复（R-RR-1..3）| 从文件重建阶段位置;🔒 为权威;pending/状态驱动续做 | G9 | doing |
-| G11 | 角色契约改名 玄/素（R-RC-1..4）| `lead.md→xuan.md`、`impl.md→su.md`;阶段职责表;protocol 增补共享规则;challenge-first 全程 | G1-G10 | doing |
+| G1 | Phase 0 想法圆桌契约（R-P0-1..4）| 三方打磨;方向落 `_idea.md`;方向陈述含 5 要素(含 scope 非目标);可触发关卡 0 | — | done |
+| G2 | 关卡 0 方向锁定（R-G0-1..3）| 自包含呈现;通过/打回落 `decisions.md`;通过即"🔒方向",改方向须回关卡 0 | G1 | done |
+| G3 | Phase 1 最终形态设计（R-P1-1..6）| 玄持笔产 `architecture.md`+`flow.md`(Mermaid,节点=业务步骤);在冻结边界内;玄×素对抗回合;收敛信号 | G2,G9 | done |
+| G4 | 专项评审 panel 机制（R-P4-1..4）| ②强制/③按需触发;一次性、不碰 relay、不增 pane;lens 按需选;发现回流归并 | — | done |
+| G5 | 关卡 1 最终形态确认（R-G1-1..3）| 只读可判;通过/打回(可退关卡 0)落 `decisions.md`;通过即"🔒最终形态" | G3,G4 | done |
+| G6 | Phase 2 详细需求（R-P2-1..6）| 拆解源=flow 节点(n:1);7 字段完备;按字段分工;覆盖 100%(pending 门);按组推进 | G5 | done |
+| G7 | 关卡 2 详细需求批准（R-G2-1..3）| pending=0 前提;批准/精确打回落 `decisions.md`;批准即"🔒基线" | G6 | done |
+| G8 | Phase 3 构建循环（R-P3-1..4）| 沿用现循环+重编号;输入=已锁基线(commit 回指 R-编号);玄/素改名;自治/升级/完成 | G7 | done |
+| G9 | 产物与文件模型（R-F-1..5）| 新增 `templates/architecture.md`、`flow.md`;升级 `templates/requirements.md`;沿用 decisions/channel;落点 B | — | done |
+| G10 | 重启恢复（R-RR-1..3）| 从文件重建阶段位置;🔒 为权威;pending/状态驱动续做 | G9 | done |
+| G11 | 角色契约改名 玄/素（R-RC-1..4）| `lead.md→xuan.md`、`impl.md→su.md`;阶段职责表;protocol 增补共享规则;challenge-first 全程 | G1-G10 | done |
 | G12 | 对外更新 README/kickoff（R-EX-1..3）| README 中/英同步四阶段三关卡;kickoff 引导新流程;术语一致性自检 | G11 | todo |
 
 ## 4. Constraints & assumptions
