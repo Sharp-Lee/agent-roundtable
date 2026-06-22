@@ -409,7 +409,7 @@ _kickoff_text() {
   contract="$(_role_contract "$wire")"
   display="$(_role_display "$wire")"
   if [ "$wire" = "lead" ]; then
-    tail="otherwise ask the arbiter for the idea and lead Phase 0."
+    tail="otherwise ask the arbiter for the idea and start Phase 0."
   else
     tail="otherwise acknowledge and wait."
   fi
@@ -524,20 +524,20 @@ cmd_start() {
   fi
 
   local lead_pane impl_pane command_pane="" relay_pane
-  lead_pane="$(_new_pane "lead pane" new-session -d -s "$sess" -c "$target" -x "$cols" -y "$lines")" \
+  lead_pane="$(_new_pane "玄 pane" new-session -d -s "$sess" -c "$target" -x "$cols" -y "$lines")" \
     || start_fail "could not create tmux session '$sess'"
   session_created=1
 
   if [ "$layout" = "workbench" ]; then
     command_pane="$(_new_pane "command pane" split-window -v -l 33% -t "$lead_pane" -c "$target")" \
       || start_fail "could not create command pane"
-    impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane" -c "$target")" \
-      || start_fail "could not create impl pane"
+    impl_pane="$(_new_pane "素 pane" split-window -h -t "$lead_pane" -c "$target")" \
+      || start_fail "could not create 素 pane"
     relay_pane="$(_new_pane "relay pane" split-window -h -t "$command_pane" -c "$target")" \
       || start_fail "could not create relay pane"
   else
-    impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane" -c "$target")" \
-      || start_fail "could not create impl pane"
+    impl_pane="$(_new_pane "素 pane" split-window -h -t "$lead_pane" -c "$target")" \
+      || start_fail "could not create 素 pane"
     relay_pane="$(_new_pane "relay pane" new-window -t "$sess" -n relay -c "$target")" \
       || start_fail "could not create relay window"
   fi
@@ -579,8 +579,8 @@ EOF
   # Start the two CLIs in their panes.
   _require_pane_in_session "$sess" "$lead_pane"
   _require_pane_in_session "$sess" "$impl_pane"
-  _send_line "$lead_pane" "$CLAUDE_CMD" || start_fail "could not start lead CLI"
-  _send_line "$impl_pane" "$CODEX_CMD" || start_fail "could not start impl CLI"
+  _send_line "$lead_pane" "$CLAUDE_CMD" || start_fail "could not start 玄 CLI"
+  _send_line "$impl_pane" "$CODEX_CMD" || start_fail "could not start 素 CLI"
 
   local lead_kick impl_kick
   lead_kick="$(_kickoff_text lead)"
@@ -806,9 +806,9 @@ cmd_selftest() {
   tmux kill-session -t "$sess" 2>/dev/null || true
   tmux kill-session -t "$layout_sess" 2>/dev/null || true
   tmux kill-session -t "$foreign_sess" 2>/dev/null || true
-  lead_pane="$(_new_pane "lead pane" new-session -d -s "$sess" -x 200 -y 50)"
-  impl_pane="$(_new_pane "impl pane" split-window -h -t "$lead_pane")"
-  # impl pane captures whatever is typed into it
+  lead_pane="$(_new_pane "玄 pane" new-session -d -s "$sess" -x 200 -y 50)"
+  impl_pane="$(_new_pane "素 pane" split-window -h -t "$lead_pane")"
+  # The 素 pane captures whatever is typed into it.
   tmux send-keys -t "$impl_pane" -l "cat > '$got'"; tmux send-keys -t "$impl_pane" Enter
 
   SESSION="$sess" ROUNDTABLE_DIR="$rt" LEAD_PANE="$lead_pane" IMPL_PANE="$impl_pane" POLL_SECONDS=0.3 \
@@ -838,8 +838,8 @@ cmd_selftest() {
   _selftest_assert_no_file "init does not copy legacy lead contract" "$rt/prompts/lead.md" || rc=1
   _selftest_assert_no_file "init does not copy legacy impl contract" "$rt/prompts/impl.md" || rc=1
   case "$(_kickoff_text lead)" in
-    *".roundtable/prompts/xuan.md"*docs/design/roundtable/requirements.md*) _selftest_pass "lead kickoff references xuan contract and docs baseline" ;;
-    *) _selftest_fail "lead kickoff references xuan contract and docs baseline" || true; rc=1 ;;
+    *".roundtable/prompts/xuan.md"*docs/design/roundtable/requirements.md*) _selftest_pass "玄 kickoff references xuan contract and docs baseline" ;;
+    *) _selftest_fail "玄 kickoff references xuan contract and docs baseline" || true; rc=1 ;;
   esac
   case "$(_kickoff_text su)" in
     *".roundtable/prompts/su.md"*docs/design/roundtable/requirements.md*) _selftest_pass "su kickoff alias references su contract and docs baseline" ;;
@@ -883,9 +883,9 @@ cmd_selftest() {
     echo "  [FAIL] message did not reach channel.md"; rc=1
   fi
   if grep -q "New handoff in .roundtable/to-impl.md" "$got" 2>/dev/null; then
-    _selftest_pass "nudge keystrokes delivered to the impl pane (tmux send-keys works)"
+    _selftest_pass "nudge keystrokes delivered to the 素 pane (tmux send-keys works)"
   else
-    echo "  [FAIL] impl pane did not receive the nudge"; rc=1
+    echo "  [FAIL] 素 pane did not receive the nudge"; rc=1
   fi
   if grep -q ".roundtable/prompts/su.md" "$got" 2>/dev/null && ! grep -q ".roundtable/prompts/impl.md" "$got" 2>/dev/null; then
     _selftest_pass "relay nudge points to su contract"
@@ -893,16 +893,16 @@ cmd_selftest() {
     echo "  [FAIL] relay nudge did not point to su contract"; rc=1
   fi
 
-  if layout_lead="$(_new_pane "layout lead pane" new-session -d -s "$layout_sess" -x 200 -y 50)" &&
+  if layout_lead="$(_new_pane "layout 玄 pane" new-session -d -s "$layout_sess" -x 200 -y 50)" &&
     layout_command="$(_new_pane "layout command pane" split-window -v -l 33% -t "$layout_lead")" &&
-    layout_impl="$(_new_pane "layout impl pane" split-window -h -t "$layout_lead")" &&
+    layout_impl="$(_new_pane "layout 素 pane" split-window -h -t "$layout_lead")" &&
     layout_relay="$(_new_pane "layout relay pane" split-window -h -t "$layout_command")"; then
     tmux select-pane -t "$layout_lead" -T 玄
     tmux select-pane -t "$layout_impl" -T 素
     tmux select-pane -t "$layout_command" -T command
     tmux select-pane -t "$layout_relay" -T relay
-    _selftest_assert_pane_id "workbench captures lead %N id" "$layout_lead" || rc=1
-    _selftest_assert_pane_id "workbench captures impl %N id" "$layout_impl" || rc=1
+    _selftest_assert_pane_id "workbench captures 玄 %N id" "$layout_lead" || rc=1
+    _selftest_assert_pane_id "workbench captures 素 %N id" "$layout_impl" || rc=1
     _selftest_assert_pane_id "workbench captures command %N id" "$layout_command" || rc=1
     _selftest_assert_pane_id "workbench captures relay %N id" "$layout_relay" || rc=1
     _selftest_assert_eq "workbench builds four panes" "4" "$(tmux list-panes -t "$layout_sess" | wc -l | tr -d ' ')" || rc=1

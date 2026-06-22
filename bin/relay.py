@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Roundtable relay watcher.
 
-Turn-based message relay between two interactive CLI panes (lead / impl).
+Turn-based message relay between two interactive CLI panes (玄 / 素).
+The transport keeps the wire labels lead / impl for mailbox routing.
 
 Mechanism (deliberately simple and robust):
   - Each agent hands off by *writing its message to a mailbox file*. That write
@@ -12,14 +13,14 @@ Mechanism (deliberately simple and robust):
       2. nudges the *other* pane via `tmux send-keys` to read its inbox.
 
 Mailboxes (inside <project>/.roundtable/):
-  - to-impl.md : lead writes here  -> relay nudges the impl pane
-  - to-lead.md : impl writes here  -> relay nudges the lead pane
+  - to-impl.md : lead wire writes here -> relay nudges the 素 pane
+  - to-lead.md : impl wire writes here -> relay nudges the 玄 pane
 
 Config via environment:
   ROUNDTABLE_DIR : absolute path to the project's .roundtable directory
-  SESSION        : tmux session that owns the lead/impl panes
-  LEAD_PANE      : tmux target for the lead pane (usually a unique %N id)
-  IMPL_PANE      : tmux target for the impl pane (usually a unique %N id)
+  SESSION        : tmux session that owns the 玄/素 panes
+  LEAD_PANE      : tmux target for the 玄 pane (lead wire, usually a unique %N id)
+  IMPL_PANE      : tmux target for the 素 pane (impl wire, usually a unique %N id)
   POLL_SECONDS   : poll interval (default 1.0)
 """
 from __future__ import annotations
@@ -100,7 +101,7 @@ def main() -> int:
     last_mtime = {p: (p.stat().st_mtime if p.exists() else 0.0) for p in routes}
 
     sys.stderr.write(
-        f"relay: watching {root} (session={session} lead={lead_pane} impl={impl_pane}); Ctrl-C to stop\n"
+        f"relay: watching {root} (session={session} lead_wire={lead_pane} impl_wire={impl_pane}); Ctrl-C to stop\n"
     )
 
     while True:

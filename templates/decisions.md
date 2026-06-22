@@ -5,4 +5,4 @@
 
 | # | Question / disagreement | Decision | Rationale | Decided by | Phase |
 |---|-------------------------|----------|-----------|------------|-------|
-| 1 | …                       | …        | …         | lead+impl / arbiter | 0 |
+| 1 | …                       | …        | …         | 玄+素 / arbiter | 0 |
