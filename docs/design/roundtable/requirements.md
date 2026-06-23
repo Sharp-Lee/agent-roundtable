@@ -50,8 +50,8 @@ requires `pending = 0`. Group status is derived from atomic rows (see `flow.md` 
 | G1 | `protocol.md` — canonical Requirement Status Lifecycle | R-LC-1..4 | 0 | done |
 | G2 | `protocol.md` — Phase 2 order + invariant + panel + reopen | R-P2-1..4 | 0 | done |
 | G3 | `protocol.md` — Restart Recovery update | R-RR-1..2 | 0 | done |
-| G4 | `prompts/xuan.md` — 玄 duties | R-XU-1..3 | 0 | todo |
-| G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | todo |
+| G4 | `prompts/xuan.md` — 玄 duties | R-XU-1..3 | 0 | done |
+| G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | done |
 | G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | todo |
 | G7 | `bin/roundtable` — selftest drift guard | R-ST-1..1 | 0 | todo |
 | G8 | `README.md` / `README.en.md` + historical annotation | R-EX-1..1 | 0 | todo |
@@ -196,7 +196,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   → only then present WHY/WHAT to the arbiter.
 - **HOW:** Edit the Phase Duties / Phase 2 row in `xuan.md`.
 - **验收:** Duty wording present; order explicit.
-- **状态:** todo
+- **状态:** done
 
 #### R-XU-2 Status duty references canonical (no enumeration; operational mentions tagged)
 - **编号:** R-XU-2
@@ -209,7 +209,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Edit `xuan.md`.
 - **验收:** No local state-set enumeration; any operational state mention carries the canonical
   tag; observation framed as information-only.
-- **状态:** todo
+- **状态:** done
 
 #### R-XU-3 Restart duty: verify 素 challenge before presenting
 - **编号:** R-XU-3
@@ -221,7 +221,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   or re-confirm with 素.
 - **HOW:** Add the duty to `xuan.md` (Phase 2 / restart duty).
 - **验收:** Duty present in `xuan.md`; ties to the canonical R-RR-2 rule; default is re-confirm.
-- **状态:** todo
+- **状态:** done
 
 ### G5 · `prompts/su.md` — 素 duties
 
@@ -233,7 +233,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   in `protocol.md`.
 - **HOW:** Edit `su.md`.
 - **验收:** References present.
-- **状态:** todo
+- **状态:** done
 
 #### R-SU-2 Operational state mentions are tagged
 - **编号:** R-SU-2
@@ -244,7 +244,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   definition.
 - **HOW:** Edit `su.md`.
 - **验收:** Any operational state mention carries the canonical tag.
-- **状态:** todo
+- **状态:** done
 
 ### G6 · `templates/requirements.md` — pointer + sentinels + diagram + note
 
