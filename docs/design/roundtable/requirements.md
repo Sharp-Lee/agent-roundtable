@@ -52,8 +52,8 @@ requires `pending = 0`. Group status is derived from atomic rows (see `flow.md` 
 | G3 | `protocol.md` — Restart Recovery update | R-RR-1..2 | 0 | done |
 | G4 | `prompts/xuan.md` — 玄 duties | R-XU-1..3 | 0 | done |
 | G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | done |
-| G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | todo |
-| G7 | `bin/roundtable` — selftest drift guard | R-ST-1..1 | 0 | todo |
+| G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | done |
+| G7 | `bin/roundtable` — selftest drift guard | R-ST-1..1 | 0 | done |
 | G8 | `README.md` / `README.en.md` + historical annotation | R-EX-1..1 | 0 | todo |
 
 ## 5. Atomic requirement format
@@ -261,7 +261,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Edit `templates/requirements.md` format section + add the three sentinels with content.
 - **验收:** All three sentinels present with the specified content; atomic-requirement default
   status is `pending` at a stable anchor (e.g. `- **状态:** pending`). (Verified by R-ST-1.)
-- **状态:** todo
+- **状态:** done
 
 #### R-TM-2 Template table/default consistency (review-verified)
 - **编号:** R-TM-2
@@ -274,7 +274,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Edit `templates/requirements.md` header legend + group-table example rows.
 - **验收:** Group-table defaults consistent with the rollup rule; legend references the canonical
   lifecycle; no contradiction between group and atomic defaults. (Review-verified, not selftest.)
-- **状态:** todo
+- **状态:** done
 
 ### G7 · `bin/roundtable` — selftest drift guard
 
@@ -294,7 +294,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   anchor (in `$design/requirements.md`), or the canonical heading (in `$rt/prompts/protocol.md`)
   is missing/renamed; passes on the correct tree; `bash -n` clean. (Proves anchors-present +
   pointer-target-exists; does not prove cross-surface semantic agreement.)
-- **状态:** todo
+- **状态:** done
 
 ### G8 · `README.md` / `README.en.md` + historical annotation
 
