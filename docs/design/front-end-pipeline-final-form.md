@@ -155,6 +155,9 @@ flowchart LR
     DEC -.-> P3
 ```
 
+> 注：上图中的 `状态:todo→doing→done` 保留为 v2 构建设计历史证据；当前需求状态生命周期已由
+> `prompts/protocol.md` / `## Requirement Status Lifecycle` 取代。
+
 ### C.5 需求粒度:一个流程节点 → 多条需求(n:1)
 
 **修正(关卡 1 反馈):** 需求**比流程节点更细**。② 流程图的一个节点是一个"业务步骤",

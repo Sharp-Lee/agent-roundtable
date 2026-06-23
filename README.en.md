@@ -49,7 +49,8 @@ Phase 0  Idea roundtable       raw idea -> three-party shaping -> direction stat
                                ╔═ Gate 0: direction lock ═╗
 Phase 1  Final-form design     玄 drafts architecture/flow -> 素 adversarial review
                                -> one-shot panel -> ╔═ Gate 1: final-form confirmation ═╗
-Phase 2  Detailed requirements expand flow nodes into atomic requirements -> pending=0
+Phase 2  Detailed requirements expand flow nodes into atomic requirements -> 素 challenges / 玄+素 converge
+                               -> arbiter confirms WHY/WHAT -> pending=0
                                -> ╔═ Gate 2: detailed requirements approval ═╗
 Phase 3  Build loop            per requirement: assign -> challenge -> 素 implements+commits
                                -> 玄 reviews -> both agree -> 玄 commits status -> next

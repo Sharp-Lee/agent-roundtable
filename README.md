@@ -43,7 +43,8 @@ Phase 0  想法圆桌        原始想法 -> 三方打磨 -> 方向陈述       
                          ╔═ Gate 0：方向锁定 ═╗
 Phase 1  最终形态设计    玄起草 architecture/flow -> 素对抗式评审
                          -> panel 一次性评审 -> ╔═ Gate 1：最终形态确认 ═╗
-Phase 2  详细需求        从 flow 节点展开原子需求 -> pending 清零
+Phase 2  详细需求        从 flow 节点展开原子需求 -> 素质疑/玄素收敛
+                         -> 你确认 WHY/WHAT -> pending 清零
                          -> ╔═ Gate 2：详细需求批准 ═╗
 Phase 3  构建循环        逐条需求：分配 -> 质疑 -> 素实现+提交
                          -> 玄评审 -> 双方一致 -> 玄提交状态 -> 下一条
