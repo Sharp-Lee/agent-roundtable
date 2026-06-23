@@ -1,55 +1,344 @@
-# Requirements — roundtable「前置设计流程」(玄/素 v2)
+# Requirements — Phase 2 sequence + requirement status lifecycle
 
-> Phase 0/1 已在 dry-run roundtable 走完;此清单即 Gate A 已批准的 Phase 2 工作清单。
-> **完整 WHY/WHAT/HOW/验收** 见 [`front-end-pipeline-requirements.md`](../front-end-pipeline-requirements.md)(48 条原子需求)
-> 与最终形态 [`front-end-pipeline-final-form.md`](../front-end-pipeline-final-form.md)。
-> 本文件已 copy-forward 到 `docs/design/roundtable/requirements.md`;后续以 docs/ 为权威,`.roundtable/` 仅保留 legacy mirror。
+> Produced in Phase 2 from the 🔒 locked `architecture.md` + `flow.md`.
+> **🔒 Gate 2 locked 2026-06-23.** All 19 WHY/WHAT arbiter-confirmed → rows `todo`; pending = 0;
+> baseline approved. Supersedes the completed v2-pipeline-build worklist previously at this path
+> (G1–G12, preserved in git history at commit `37a1727`). Reopen Gate 2 explicitly to change the
+> baseline; reopen Gate 1 if a hard architecture/flow issue surfaces during build.
 
 **Version:** v1
-**Sign-off:** lead: ☑  impl: ☑   |   **Arbiter approval (Gate A):** ☑（dry-run 2026-06-22）
+**Baseline:** locked 🔒
+**Gate 2:** approved
+**Pending count:** 0
 
 ## 1. Problem & goal
-为 roundtable 增加一条**前置设计流水线**:想法圆桌 → 最终形态设计 → 详细需求 → 构建循环,
-人类在三处把关(方向锁定 / 最终形态确认 / 详细需求批准),其余自治。核心:在 idea 与构建之间,
-产出**整体架构文档**与**运行时业务流程文档(含 Mermaid 图)**,再把每个业务步骤展开成清晰、可追溯的原子需求。
 
-## 2. Scope
-- **In scope:** 改 `prompts/protocol.md`、角色契约(改名 玄/素)、`templates/`(新增 architecture/flow、升级 requirements)、README 中/英、kickoff;落点 B(设计产物入 tracked `docs/`)。
-- **Out of scope(非目标):** 不改 `bin/relay.py`(阶段无关);不重做已验证的构建循环;不引入第三方依赖;不增加常驻 agent(多视角靠一次性 panel)。
+Phase 2 of the roundtable pipeline had no written internal order and a status vocabulary that
+had drifted across three files with an undefined post-confirmation state. This baseline encodes
+the locked final form: a canonical requirement-status lifecycle and an explicit Phase-2
+per-group loop, written once in `protocol.md` and referenced everywhere else, guarded by a
+drift selftest. Contract/doc only; Phase 0/1/3 behavior frozen.
 
-## 3. Requirements (the Phase 2 work list)
-> 每个工作项对应一组原子需求(R-编号);构建时 commit 回指对应 R-编号。Status ∈ todo / doing / done。
+## 2. Locked inputs
 
-| # | Requirement(覆盖的 R-编号) | Acceptance criteria | Depends on | Status |
-|---|------------------------------|---------------------|------------|--------|
-| G1 | Phase 0 想法圆桌契约（R-P0-1..4）| 三方打磨;方向落 `_idea.md`;方向陈述含 5 要素(含 scope 非目标);可触发关卡 0 | — | done |
-| G2 | 关卡 0 方向锁定（R-G0-1..3）| 自包含呈现;通过/打回落 `decisions.md`;通过即"🔒方向",改方向须回关卡 0 | G1 | done |
-| G3 | Phase 1 最终形态设计（R-P1-1..6）| 玄持笔产 `architecture.md`+`flow.md`(Mermaid,节点=业务步骤);在冻结边界内;玄×素对抗回合;收敛信号 | G2,G9 | done |
-| G4 | 专项评审 panel 机制（R-P4-1..4）| ②强制/③按需触发;一次性、不碰 relay、不增 pane;lens 按需选;发现回流归并 | — | done |
-| G5 | 关卡 1 最终形态确认（R-G1-1..3）| 只读可判;通过/打回(可退关卡 0)落 `decisions.md`;通过即"🔒最终形态" | G3,G4 | done |
-| G6 | Phase 2 详细需求（R-P2-1..6）| 拆解源=flow 节点(n:1);7 字段完备;按字段分工;覆盖 100%(pending 门);按组推进 | G5 | done |
-| G7 | 关卡 2 详细需求批准（R-G2-1..3）| pending=0 前提;批准/精确打回落 `decisions.md`;批准即"🔒基线" | G6 | done |
-| G8 | Phase 3 构建循环（R-P3-1..4）| 沿用现循环+重编号;输入=已锁基线(commit 回指 R-编号);玄/素改名;自治/升级/完成 | G7 | done |
-| G9 | 产物与文件模型（R-F-1..5）| 新增 `templates/architecture.md`、`flow.md`;升级 `templates/requirements.md`;沿用 decisions/channel;落点 B | — | done |
-| G10 | 重启恢复（R-RR-1..3）| 从文件重建阶段位置;🔒 为权威;pending/状态驱动续做 | G9 | done |
-| G11 | 角色契约改名 玄/素（R-RC-1..4）| `lead.md→xuan.md`、`impl.md→su.md`;阶段职责表;protocol 增补共享规则;challenge-first 全程 | G1-G10 | done |
-| G12 | 对外更新 README/kickoff（R-EX-1..3）| README 中/英同步四阶段三关卡;kickoff 引导新流程;术语一致性自检 | G11 | done |
+- **Direction:** `.roundtable/_idea.md` (🔒 Gate 0)
+- **Architecture:** `docs/design/roundtable/architecture.md` (🔒 Gate 1)
+- **Runtime flow:** `docs/design/roundtable/flow.md` (🔒 Gate 1)
+- **Non-goals / frozen boundaries:** no engine refactor; the only code touch is the selftest
+  drift guard; no new states/gates/panes/relay routes; no Phase 0/1/3 behavior change; one
+  status column only.
 
-## 4. Constraints & assumptions
-- 零第三方依赖(tmux + python3 stdlib);引擎(relay + orchestrator)保持极小、几乎不改。
-- "文件即记忆":设计产物入 tracked `docs/`,交接态(channel/_idea/mailbox)留 `.roundtable/`。
-- 命名 玄=Claude(原 lead)/ 素=Codex(原 impl),仅为标签、不编码角色。
+If a requirement would change the locked direction, architecture, or flow, stop and reopen the
+relevant gate.
 
-## 5. Open questions
-（无;Gate A 已通过。构建中若发现最终形态/需求硬伤,按 R-G1-3 / R-G2-3 显式升级回对应关卡。）
+## 3. Scope
 
-## 6. 构建排序指引(供自治循环规划用,非强制)
-> 目的:让 lead+impl 的 `/ce-plan` 自己排好顺序,**不必由 arbiter 供给**。impl 应**对抗、修正**本节,而非照抄。
+- **In scope:** `prompts/protocol.md` (canonical lifecycle section + Phase 2 order + Restart
+  Recovery), `prompts/xuan.md`, `prompts/su.md`, `templates/requirements.md`, the
+  `bin/roundtable` selftest drift guard, `README.md` / `README.en.md` workflow line, and a
+  one-line historical annotation on `docs/design/front-end-pipeline-final-form.md`.
+- **Out of scope:** `bin/relay.py` behavior, `templates/channel.md`, any retro-edit of completed
+  v2-build row statuses, and any new STATUS value / gate / pane / route.
 
-- **自治授权:** Gate A 已批准 = 已授权自治运行。**不必为"先开哪项 / 派活给 impl"请示 arbiter**;仅在真实僵局(>3 轮)/ 真实阻塞 / 触发限流时升级。
-- **无依赖、可先开:** G9、G1、G4(其余均有 Depends on)。
-- **物理 sink 警告(关键):** 12 组是按"关注点"切的,但写入**高度集中在 `prompts/protocol.md` + 两份角色契约**。R-RC-3(G11)明确就是"把四阶段 / 三关卡 / panel / 锁 / 落点 / 重启**写进 protocol.md**"——即 **G1–G10 多为"定规则",G11 才是"落笔到 protocol.md"**。逐组各改一遍 protocol.md 再到 G11 重写,会反复打架。
-- **建议顺序:**
-  1. **G9** —— 隔离的新模板(architecture / flow + requirements 升级),打底、解开 G3 依赖。
-  2. **protocol.md + 角色契约 玄/素 整体一次写成** —— 吸收 G1/G2/G4/G5/G7/G10 的规则 + G11 的改名与阶段表,而非对同一文件改 11 次。
-  3. **G12** —— README 中/英 + kickoff + 一致性自检,收尾。
+## 4. 拆解清单 (decomposition)
+
+Decomposition source = the 🔒 architecture surfaces (where each locked rule is written). Gate 2
+requires `pending = 0`. Group status is derived from atomic rows (see `flow.md` §4).
+
+| Group | Surface (architecture node) | Requirement ids | Pending | Status |
+|---|---|---|---:|---|
+| G1 | `protocol.md` — canonical Requirement Status Lifecycle | R-LC-1..4 | 0 | todo |
+| G2 | `protocol.md` — Phase 2 order + invariant + panel + reopen | R-P2-1..4 | 0 | todo |
+| G3 | `protocol.md` — Restart Recovery update | R-RR-1..2 | 0 | todo |
+| G4 | `prompts/xuan.md` — 玄 duties | R-XU-1..3 | 0 | todo |
+| G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | todo |
+| G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | todo |
+| G7 | `bin/roundtable` — selftest drift guard | R-ST-1..1 | 0 | todo |
+| G8 | `README.md` / `README.en.md` + historical annotation | R-EX-1..1 | 0 | todo |
+
+## 5. Atomic requirement format
+
+Seven fields each: 编号 / 所属节点 / WHY / WHAT / HOW / 验收 / 状态. Status values follow the
+canonical lifecycle in `prompts/protocol.md` (`pending → todo → doing → done`, with `blocked`
+as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
+
+## 6. Requirements by surface
+
+### G1 · `protocol.md` — canonical Requirement Status Lifecycle
+
+#### R-LC-1 The four-state main line + `blocked` exception
+- **编号:** R-LC-1
+- **所属节点:** G1 canonical lifecycle
+- **WHY:** One authoritative state set, so status means the same thing everywhere.
+- **WHAT:** A new "Requirement Status Lifecycle" section defining `pending → todo → doing →
+  done` plus `blocked` as a `doing`-only exception (reason + owner/condition + re-entry; exit
+  `blocked → doing`), with the narrowing rule (a `pending`/`todo` item blocked by
+  decision/dependency stays in its state, not `blocked`).
+- **HOW:** New section in `protocol.md` matching `flow.md` §F-2 (state meanings + transitions).
+- **验收:** Section exists; lists exactly the five tokens with the four transitions and the
+  `blocked` entry/exit/narrowing rules; no other file redefines the set.
+- **状态:** todo
+
+#### R-LC-2 Confirmed vs locked decoupled
+- **编号:** R-LC-2
+- **所属节点:** G1
+- **WHY:** Avoid conflating per-row confirmation with baseline locking.
+- **WHAT:** State that `todo` (per-row, arbiter-confirmed) is independent of `🔒` (baseline-level
+  at Gate 2); the lock is a file property, never a per-row state.
+- **HOW:** One paragraph in the lifecycle section.
+- **验收:** Text present and unambiguous.
+- **状态:** todo
+
+#### R-LC-3 Group rollup precedence (atomic rows authoritative)
+- **编号:** R-LC-3
+- **所属节点:** G1
+- **WHY:** Deterministic, conservative group display; restart recovery never misreads progress.
+- **WHAT:** Atomic rows are the source of truth; group status is derived; `Pending` column =
+  count of `pending` atomic rows; precedence `pending > blocked > doing/partially-built > done
+  > todo`; "not yet decomposed" → `pending` (transient); Gate 2 keyed to atomic pending count.
+- **HOW:** Subsection in the lifecycle section, mirroring `flow.md` §4.
+- **验收:** Precedence resolves every mix (incl. `blocked+doing`, `done+todo`, post-reopen
+  `done+pending`); states the mixed-rollup caveat (inspect atomic rows after a reopen).
+- **状态:** todo
+
+#### R-LC-4 Row mutation outside the state machine
+- **编号:** R-LC-4
+- **所属节点:** G1
+- **WHY:** Prevent silent rewrites of confirmed/done rows.
+- **WHAT:** Delete/descope/replace is not a status transition; a `todo`/`done` row whose
+  WHY/WHAT must change returns to `pending` or gets a replacement `pending` row, never an
+  in-place rewrite; `done` rows stay in the baseline (not removed).
+- **HOW:** Short rule block in the lifecycle section, mirroring `flow.md` §3 "Row mutation".
+- **验收:** Rule present; covers delete/descope/replace + the WHY/WHAT-change handling.
+- **状态:** todo
+
+### G2 · `protocol.md` — Phase 2 order + invariant + panel + reopen
+
+#### R-P2-1 Explicit per-group loop + hard invariant
+- **编号:** R-P2-1
+- **所属节点:** G2 Phase 2 order
+- **WHY:** Make Phase 2's order deterministic and protect arbiter time.
+- **WHAT:** Encode the per-group loop (draft → 素 challenge → converge → [panel] → present
+  WHY/WHAT → arbiter confirm → flip `pending→todo`; all groups `pending=0` → Gate 2) and the
+  hard invariant: 玄 never presents an un-challenged, un-converged draft to the arbiter.
+- **HOW:** Rewrite the Phase 2 section of `protocol.md` to match `flow.md` §F-1.
+- **验收:** Loop order + invariant present; "按组推进" explicit; Gate 2 = single baseline gate.
+- **状态:** todo
+
+#### R-P2-2 Panel timing (before confirmation) + the three positions
+- **编号:** R-P2-2
+- **所属节点:** G2
+- **WHY:** The arbiter should confirm only panel-hardened requirements; panels must be able to
+  affect flow.
+- **WHAT:** Pre-confirmation group panel (E); optional cross-group panel (K, after confirm /
+  before Gate 2, with the disposition branch); any late panel invalidates confirmation **iff**
+  an accepted finding changes WHY/WHAT.
+- **HOW:** Encode `flow.md` "Panel timing" prose into the Phase 2 section.
+- **验收:** All three positions described; "disturbs confirmation iff WHY/WHAT changes" stated.
+- **状态:** todo
+
+#### R-P2-3 Send-back transitions + cross-group-panel bound
+- **编号:** R-P2-3
+- **所属节点:** G2
+- **WHY:** No 素-bypass, no non-terminating loops, no unbounded panel churn.
+- **WHAT:** Send-back keeps the row `pending`, routes WHY/WHAT→redraft and
+  HOW/acceptance/structure→revise+reconverge-through-素, and a no-actionable-change send-back is
+  arbiter clarification (no silent re-present). Cross-group panel re-runs only for new
+  undispositioned risk; same/substantially-same risk uses the disagreement/escalation guardrail.
+- **HOW:** Encode `flow.md` §F-1 send-back + bound prose.
+- **验收:** No edge bypasses 素; no fixpoint re-present edge; bound tied to same-risk escalation.
+- **状态:** todo
+
+#### R-P2-4 Gate-2 reopen `done`-row revalidation
+- **编号:** R-P2-4
+- **所属节点:** G2
+- **WHY:** A `done` row invalidated by a sibling `todo` change must not ride a relock stale.
+- **WHAT:** Before relocking a partially-built baseline, 玄+素 check each carried `done` row
+  against changed/new `todo` rows for dependency/assumption impact; impacted rows return to
+  `pending`/`todo`; record the check in `decisions.md`.
+- **HOW:** Add the reopen precondition to the Phase 2 / Gate 2 prose.
+- **验收:** Precondition present; recovery-inspects-atomic-rows caveat noted.
+- **状态:** todo
+
+### G3 · `protocol.md` — Restart Recovery update
+
+#### R-RR-1 Recovery references the full lifecycle set
+- **编号:** R-RR-1
+- **所属节点:** G3 Restart Recovery
+- **WHY:** The recovery checklist predates `todo`/`blocked` and names a stale subset.
+- **WHAT:** Update the Restart Recovery step that reads `requirements.md` to reference the full
+  lifecycle set (`pending/todo/doing/done/blocked`) per the canonical section, not `pending`/
+  `doing` only.
+- **HOW:** Edit the Restart Recovery section of `protocol.md`.
+- **验收:** Step references the canonical set / lifecycle section, no two-state subset remains.
+- **状态:** todo
+
+#### R-RR-2 In-flight invariant preservation on restart
+- **编号:** R-RR-2
+- **所属节点:** G3
+- **WHY:** In-flight loop position is not a row status (all read `pending`); a restart could
+  present an un-challenged draft, violating the hard invariant.
+- **WHAT:** On restart, 玄 treats 素's challenge/convergence for a group as not-done unless
+  evidenced in `channel.md`/`decisions.md`; when in doubt, re-confirm with 素 (re-run challenge)
+  before presenting. This is the **canonical** rule; the 玄-side operational duty is R-XU-3.
+- **HOW:** Add the conservative rule to `protocol.md` Restart Recovery.
+- **验收:** Canonical rule present in `protocol.md`; conservative default is re-challenge, never
+  present-unverified. (The role-duty half is verified by R-XU-3.)
+- **状态:** todo
+
+### G4 · `prompts/xuan.md` — 玄 duties
+
+#### R-XU-1 Phase 2 duty: draft → 素 before arbiter
+- **编号:** R-XU-1
+- **所属节点:** G4
+- **WHY:** Encode the hard invariant in 玄's own contract.
+- **WHAT:** 玄's Phase 2 duty states: draft decomposition → send to 素 for challenge → converge
+  → only then present WHY/WHAT to the arbiter.
+- **HOW:** Edit the Phase Duties / Phase 2 row in `xuan.md`.
+- **验收:** Duty wording present; order explicit.
+- **状态:** todo
+
+#### R-XU-2 Status duty references canonical (no enumeration; operational mentions tagged)
+- **编号:** R-XU-2
+- **所属节点:** G4
+- **WHY:** Role prompts must not become a drift surface (mirrors R-SU-2 for `xuan.md`).
+- **WHAT:** 玄's status-update duty points to the canonical lifecycle in `protocol.md` by name
+  and does not re-enumerate the state set; any state named operationally carries a "per the
+  Requirement Status Lifecycle in `protocol.md`" tag; live-row observation is information-only,
+  not definitional.
+- **HOW:** Edit `xuan.md`.
+- **验收:** No local state-set enumeration; any operational state mention carries the canonical
+  tag; observation framed as information-only.
+- **状态:** todo
+
+#### R-XU-3 Restart duty: verify 素 challenge before presenting
+- **编号:** R-XU-3
+- **所属节点:** G4
+- **WHY:** 玄 is the actor presenting after a restart; the canonical rule (R-RR-2) needs an
+  operational duty in 玄's own contract so a restarted 玄 doesn't miss it.
+- **WHAT:** After a restart, before presenting an in-flight Phase 2 group's WHY/WHAT to the
+  arbiter, 玄 must verify evidence of 素's challenge/convergence (in `channel.md`/`decisions.md`)
+  or re-confirm with 素.
+- **HOW:** Add the duty to `xuan.md` (Phase 2 / restart duty).
+- **验收:** Duty present in `xuan.md`; ties to the canonical R-RR-2 rule; default is re-confirm.
+- **状态:** todo
+
+### G5 · `prompts/su.md` — 素 duties
+
+#### R-SU-1 Challenge + restart duties reference canonical
+- **编号:** R-SU-1
+- **所属节点:** G5
+- **WHY:** Same drift-prevention; 素's restart checklist must use the full set.
+- **WHAT:** 素's Phase 2 challenge duty and restart checklist reference the canonical lifecycle
+  in `protocol.md`.
+- **HOW:** Edit `su.md`.
+- **验收:** References present.
+- **状态:** todo
+
+#### R-SU-2 Operational state mentions are tagged
+- **编号:** R-SU-2
+- **所属节点:** G5
+- **WHY:** A partial operational list (e.g. omitting `done`) is a drift surface.
+- **WHAT:** Any state named operationally (e.g. "surface `doing`/`blocked` rows") carries a
+  "per the Requirement Status Lifecycle in `protocol.md`" tag, marking it illustration not
+  definition.
+- **HOW:** Edit `su.md`.
+- **验收:** Any operational state mention carries the canonical tag.
+- **状态:** todo
+
+### G6 · `templates/requirements.md` — pointer + sentinels + diagram + note
+
+#### R-TM-1 Lifecycle reference block + atomic default (selftest-anchored)
+- **编号:** R-TM-1
+- **所属节点:** G6
+- **WHY:** A copied standalone requirements file must be self-sufficient yet non-authoritative,
+  and selftest needs stable anchors. (This is the row R-ST-1 asserts.)
+- **WHAT:** Template embeds three HTML sentinels with content: `<!-- rt-lifecycle-pointer -->`
+  (one-line pointer to the protocol canonical section by name), `<!-- rt-lifecycle-diagram -->`
+  (compact `pending → todo → doing → done`, `blocked` as `doing → blocked → doing`),
+  `<!-- rt-lifecycle-note -->` ("group status derived, atomic rows authoritative"); and the
+  atomic-requirement default status is `pending`.
+- **HOW:** Edit `templates/requirements.md` format section + add the three sentinels with content.
+- **验收:** All three sentinels present with the specified content; atomic-requirement default
+  status is `pending` at a stable anchor (e.g. `- **状态:** pending`). (Verified by R-ST-1.)
+- **状态:** todo
+
+#### R-TM-2 Template table/default consistency (review-verified)
+- **编号:** R-TM-2
+- **所属节点:** G6
+- **WHY:** The template currently defaults groups to `todo` while atomic rows are `pending` — a
+  self-contradiction; the legend predates the canonical lifecycle.
+- **WHAT:** Reconcile the 拆解清单 group-table defaults and Pending/Status examples to the rollup
+  rule (a fresh group with all-`pending` atomic rows rolls up `pending`); update the legend to
+  reference the canonical lifecycle; remove the group-vs-atomic contradiction.
+- **HOW:** Edit `templates/requirements.md` header legend + group-table example rows.
+- **验收:** Group-table defaults consistent with the rollup rule; legend references the canonical
+  lifecycle; no contradiction between group and atomic defaults. (Review-verified, not selftest.)
+- **状态:** todo
+
+### G7 · `bin/roundtable` — selftest drift guard
+
+#### R-ST-1 Selftest asserts sentinels + default + pointer-target
+- **编号:** R-ST-1
+- **所属节点:** G7
+- **WHY:** Make drift protection selftest-backed, not grep-only (Gate 0 decision #4, stronger
+  form).
+- **WHAT:** After `cmd_init`, `cmd_selftest` asserts — in the **initialized project paths** —
+  the three `rt-lifecycle-*` sentinels and the atomic default in `$design/requirements.md`, and
+  the canonical-section heading in `$rt/prompts/protocol.md` (the copied runtime protocol, not an
+  ambiguous repo-root path). All checks use exact stable strings.
+- **HOW:** Add `grep -q` assertions reusing the existing init-output grep pattern: each of the
+  three exact HTML sentinels and the exact protocol heading string; the atomic default via an
+  exact anchor (e.g. `- **状态:** pending`), not a loose `pending` match.
+- **验收:** `bin/roundtable selftest` fails if any of the three sentinels, the atomic-default
+  anchor (in `$design/requirements.md`), or the canonical heading (in `$rt/prompts/protocol.md`)
+  is missing/renamed; passes on the correct tree; `bash -n` clean. (Proves anchors-present +
+  pointer-target-exists; does not prove cross-surface semantic agreement.)
+- **状态:** todo
+
+### G8 · `README.md` / `README.en.md` + historical annotation
+
+#### R-EX-1 README workflow line + historical annotation
+- **编号:** R-EX-1
+- **所属节点:** G8
+- **WHY:** README teaches the workflow; the stale final-form diagram should point forward.
+- **WHAT:** Update the Phase-2 workflow line in `README.md` + `README.en.md` to mention
+  "challenged/converged before arbiter confirmation"; add a one-line note on
+  `docs/design/front-end-pipeline-final-form.md` marking its `状态:todo→doing→done` diagram as
+  historical v2-build evidence superseded by the canonical lifecycle in `protocol.md`.
+- **HOW:** Edit the two READMEs and add the annotation line.
+- **验收:** Both READMEs updated consistently (zh/en convention preserved); annotation present;
+  the historical diagram itself not retro-edited.
+- **状态:** todo
+
+## 7. Constraints & assumptions
+
+- Zero third-party dependency; engine stays minimal (only the selftest assertion changes code).
+- Single source of truth: canonical lifecycle in `protocol.md`; all else references/derives.
+- Build-sequencing note (non-binding, for Phase 3 `/ce-plan`; refined with 素):
+  1. `prompts/protocol.md`: R-LC-*, R-P2-*, R-RR-* in one coherent edit (canonical section must
+     exist before anything references it).
+  2. `prompts/xuan.md` + `prompts/su.md`: role-prompt references (incl. R-XU-3 restart duty)
+     after the canonical section exists.
+  3. `templates/requirements.md` (R-TM-1 sentinels/default, R-TM-2 table consistency) +
+     `bin/roundtable` (R-ST-1): sentinels first, then the selftest in the same or adjacent
+     commit so the test never expects anchors that do not yet exist.
+  4. `README.md`, `README.en.md`, and the `front-end-pipeline-final-form.md` annotation
+     (R-EX-1): informational mirrors last.
+
+## 8. Panel / review notes
+
+Phase-1 panel already hardened the design (see `decisions.md`). A Phase-2 panel is only needed
+if a specific requirement turns out high-risk/cross-node during 素's challenge.
+
+| Requirement id | Lens | Finding | Disposition | Rationale |
+|---|---|---|---|---|
+| — | — | (none yet) | — | — |
+
+## 9. Open questions
+
+Gate 2 requires this resolved/empty.
+
+| Question | Affected req | Owner | Status |
+|---|---|---|---|
+| (none yet) | — | — | — |

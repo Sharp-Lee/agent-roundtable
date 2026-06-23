@@ -12,12 +12,15 @@
 | 3 | Scope-edge call: the stale `状态:todo→doing→done` diagram in `docs/design/front-end-pipeline-final-form.md` | **Mark historical** — add a one-line note that it is v2-build design evidence, superseded by the canonical lifecycle in `protocol.md`; do not retro-edit the diagram. | Same logic as not retro-editing completed `requirements.md` row statuses: preserve historical design evidence, point forward to the canonical source. | arbiter (per 玄 rec) | 0 / Gate 0 |
 | 4 | Scope-edge call: add drift-protection selftest? | **Yes** — add a small `bin/roundtable selftest` template-content assertion (template defaults atomic status to `pending`; template contains the lifecycle pointer). This is the only code touch in an otherwise doc-only change. | This whole project exists to stop status drift; a tiny assertion makes drift protection selftest-backed instead of grep-only. | arbiter (per 玄 rec) | 0 / Gate 0 |
 | 5 | Gate 1 — final-form lock (`architecture.md` + `flow.md`) | **Approved 🔒.** Final form per the two docs, including all Phase-1-panel hardenings (non-terminating send-back edge removed; cross-group panel bounded; Gate-2-reopen `done`-revalidation; restart preserves the hard invariant; `protocol.md` Restart Recovery in scope). **Decision #4 confirmed in its stronger form:** the drift selftest asserts stable sentinels (`<!-- rt-lifecycle-pointer/-diagram/-note -->`) + atomic `pending` default + a pointer-target check that `protocol.md` contains the canonical heading — superseding the lighter "pointer present" form. | 玄+素 converged on the final form; mandatory Phase-1 panel run and dispositioned (see below); arbiter approved and adopted the stronger selftest. | arbiter | 1 / Gate 1 |
+| 6 | Gate 2 — detailed-requirements baseline lock | **Approved 🔒.** 8 groups / 19 atomic requirements, all arbiter-confirmed (WHY/WHAT) and `todo`; pending = 0; no open questions; no Phase 2 panel needed. `docs/design/roundtable/requirements.md` is the locked input for Phase 3. | 玄+素 converged on the decomposition; arbiter confirmed all 19 WHY/WHAT group-by-group and approved the baseline. | arbiter | 2 / Gate 2 |
 
 ## Notes
 
-- The completed `docs/design/roundtable/requirements.md` (v2-build worklist, G1–G12 `done`)
-  keeps its row statuses untouched; only its one-line legend wording is aligned to reference
-  the canonical lifecycle (treated as in-scope wording alignment, not a separate decision).
+- The completed v2-build worklist previously at `docs/design/roundtable/requirements.md`
+  (G1–G12 `done`) is preserved in git history (commit `37a1727`); this project's Phase-2
+  baseline takes over that path. The earlier "align the completed worklist legend" item is
+  therefore moot — the new baseline uses the canonical vocabulary from the start, and no row
+  statuses were retro-edited.
 - `templates/channel.md` is out of scope (names recovery sources only, no status vocabulary).
 
 ## Phase 1 panel disposition (2026-06-23)
