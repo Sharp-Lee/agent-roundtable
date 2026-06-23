@@ -133,9 +133,36 @@ Goal: expand each runtime flow node into clear atomic requirements.
 - The source of decomposition is the locked `flow.md`; many atomic requirements can trace to one
   flow node (n:1).
 - Each atomic requirement has seven fields: id, flow node, WHY, WHAT, HOW, acceptance, status.
-- Arbiter participates in WHY/WHAT for every requirement. Unconfirmed items remain `pending`.
-- Pending count must be zero before Gate 2.
-- High-risk requirements may run a Phase 2 panel before Gate 2.
+- Proceed by flow-node group:
+  1. 玄 drafts the group decomposition; new atomic rows start `pending`.
+  2. 素 adversarially challenges structure, completeness, HOW, acceptance, and reality fit.
+  3. 玄 and 素 converge before any arbiter confirmation.
+  4. If the group is high-risk, high-complexity, or cross-node, 玄 may run a one-shot panel before
+     confirmation.
+  5. 玄 presents WHY/WHAT to the arbiter.
+  6. Arbiter confirmation flips affected rows `pending` → `todo`.
+- **Hard invariant:** 玄 never presents an un-challenged, un-converged draft to the arbiter.
+- Arbiter send-back during confirmation keeps affected rows `pending`:
+  - WHY/WHAT material changes return to the draft → 素 challenge → converge loop before
+    re-presentation.
+  - HOW, acceptance, or structure-only changes are revised by 玄 + 素, with 素 re-checking
+    feasibility and testability before re-presentation.
+  - A send-back that names no actionable change is clarification, not a flow edge; 玄 asks the
+    arbiter what must change rather than silently re-presenting the identical draft.
+- Panel timing:
+  - A pre-confirmation group panel hardens requirements before arbiter confirmation.
+  - An optional cross-group panel may run after all groups reach `pending = 0` and before Gate 2 for
+    systemic or integration-wide risk.
+  - Any late or post-confirmation panel disturbs confirmation only when an accepted finding changes
+    WHY/WHAT; HOW/acceptance-only findings keep rows `todo` and are revised by 玄 + 素.
+- Cross-group panel disposition:
+  - No accepted finding → Gate 2.
+  - Accepted WHY/WHAT finding → affected rows return to `pending` and re-enter the group loop.
+  - Accepted HOW/acceptance-only finding → rows stay `todo`; 玄 + 素 revise and reconverge, then
+    proceed to Gate 2.
+  - The cross-group panel re-runs only for new, undispositioned systemic risk. Same or
+    substantially-same risk/fix loops use the disagreement/escalation guardrail.
+- Pending count must be zero before Gate 2. Gate 2 is a single baseline gate.
 
 ### Gate 2 — 详细需求批准
 
@@ -144,6 +171,11 @@ Goal: expand each runtime flow node into clear atomic requirements.
 - Approval marks `docs/design/roundtable/requirements.md` with `🔒`.
 - If Phase 3 discovers the baseline must change, explicitly reopen Gate 2 or use the established
   escalation path; do not implement outside the locked baseline.
+- On a Gate 2 send-back after `pending = 0`, return affected rows to `pending` only when WHY/WHAT
+  must change. HOW/acceptance refinements keep rows `todo` and are handled by 玄 + 素.
+- Before relocking a partially built baseline, 玄 + 素 must revalidate each carried `done` row
+  against changed/new `todo` rows for dependency or assumption impact. Impacted rows return to
+  `pending` or `todo`; record the check in `docs/design/roundtable/decisions.md`.
 
 ### Phase 3 — 构建循环
 
@@ -171,19 +203,103 @@ Goal: implement the locked baseline autonomously.
 - `channel.md` is relay-owned transcript state. Read it for recovery, but do not hand-edit it.
 - Commits must capture a real diff; never use `--allow-empty`.
 
+## Requirement Status Lifecycle
+
+This section is canonical. Other files may reference, summarize, or observe these states, but they
+must not redefine the lifecycle.
+
+Main line:
+
+```text
+pending -> todo -> doing -> done
+                  ↕
+               blocked
+```
+
+Canonical state tokens:
+
+- `pending` — arbiter has not confirmed WHY/WHAT. Gate 2 entry counts these.
+- `todo` — arbiter-confirmed, awaiting build.
+- `doing` — building in Phase 3.
+- `done` — built and agreed by both 玄 and 素. The row remains in the requirements baseline.
+- `blocked` — a `doing` item that cannot proceed. It is valid only after `doing`, requires a
+  blocker reason, an owner or external condition, and an explicit re-entry condition. Exit is
+  `blocked` → `doing`.
+
+Allowed status transitions:
+
+- `pending` → `todo` when the arbiter confirms WHY/WHAT.
+- `todo` → `doing` when 素 starts Phase 3 build work.
+- `doing` → `done` when the item is built and both 玄 and 素 agree.
+- `doing` → `blocked` when a blocker is hit; `blocked` → `doing` when the re-entry condition is
+  met.
+- `todo` → `pending` only when a Gate 2 send-back or later reopen requires changing WHY/WHAT.
+
+`blocked` is not a generic "cannot proceed" bucket:
+
+- a `pending` item blocked on a missing decision stays `pending`; record the unresolved question in
+  open questions or `docs/design/roundtable/decisions.md`;
+- a `todo` item blocked by dependency or sequencing stays `todo` because it is confirmed but not
+  currently assignable.
+
+Confirmed and locked are separate concepts: `todo` is per-row arbiter confirmation; `🔒` is a
+baseline/file-level lock added at Gate 2. The lock is never a per-row status.
+
+### Group Rollup
+
+Atomic requirement rows are authoritative. A group's status is derived display state only. The
+`Pending` column is the count of atomic rows whose status is `pending`. Gate 2 is keyed to the
+atomic pending count, never to group labels.
+
+Rollup precedence, first match wins:
+
+1. `pending` — any atomic row is `pending`, or the flow node is listed but not yet decomposed.
+   "Not yet decomposed" is a transient display state; once decomposition begins, every new atomic
+   row enters `pending`.
+2. `blocked` — any atomic row is `blocked`.
+3. `doing` — any row is `doing`, or the group is partially built (`done` mixed with `todo`).
+4. `done` — all rows are `done`.
+5. `todo` — all rows are confirmed and unstarted (`todo`).
+
+After a Gate 2 reopen, inspect atomic rows, not only group labels. A post-reopen group mixing
+existing `done` rows with a new `pending` row rolls up `pending`; this overrides the normal
+"partially built is not untouched backlog" intent because the atomic pending count is authoritative.
+
+### Row Mutation Outside The State Machine
+
+Deleting, descoping, or replacing a requirement row is a content edit, not a status transition.
+Record the rationale in `docs/design/roundtable/decisions.md` or the requirements open
+questions/history area.
+
+If an existing `todo` or `done` row's WHY/WHAT must change, either return that row to `pending` for
+re-confirmation or create a replacement `pending` row. Do not silently rewrite a confirmed or done
+row's WHY/WHAT in place.
+
+HOW/acceptance refinements to a `todo` or `done` row that do not touch WHY/WHAT are content edits
+handled by 玄 + 素. They do not change the row's status and do not require arbiter re-confirmation.
+
 ## Restart Recovery
 
 On restart, read files in this order:
 
 1. `.roundtable/_idea.md` for direction and Gate 0 lock.
 2. `docs/design/roundtable/architecture.md` and `flow.md` for Gate 1 lock.
-3. `docs/design/roundtable/requirements.md` for status, `pending`, `doing`, and Gate 2 lock.
+3. `docs/design/roundtable/requirements.md` for Gate 2 lock and Requirement Status Lifecycle
+   state (`pending` / `todo` / `doing` / `done` / `blocked`).
 4. `docs/design/roundtable/decisions.md` for gate verdicts and settled rationale.
 5. `.roundtable/channel.md` for handoff history.
 6. Your inbox for the latest actionable handoff.
 
 `🔒` lock markers are authoritative. Do not redo locked phases unless a gate is explicitly reopened.
-For `doing` items, verify whether the work actually completed before continuing or redoing it.
+For `doing` or `blocked` items, verify whether the work actually completed or the re-entry condition
+has been met before continuing or redoing it.
+
+During Phase 2, a row's `pending` status does not reveal whether the group is freshly drafted,
+challenged but not converged, or converged and awaiting the arbiter. To preserve the hard invariant
+after a restart, 玄 treats 素's challenge/convergence for an in-flight group as not done unless it
+is evidenced in `channel.md` or `docs/design/roundtable/decisions.md`; when in doubt, 玄
+re-confirms with 素 before presenting to the arbiter. The conservative default is to re-challenge,
+never to present an unverified draft.
 
 ## Guardrails
 
