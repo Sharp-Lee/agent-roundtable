@@ -66,3 +66,23 @@ pointer-target check." In-spirit, but flagged explicitly.
 
 **In-scope additions (no Gate 0 reopen — same already-approved files):** `protocol.md` Restart
 Recovery + Phase-2 in-flight rule; the cross-group-panel bound. No new files/surfaces.
+
+## Learnings (Phase 3 complete — all 8 groups done)
+
+- **Drift-fix pattern (reusable).** A rule/vocabulary defined in more than one file drifts and
+  eventually self-contradicts (here: the template enumerated `pending/todo/doing/done/blocked`,
+  defined only `pending`, and defaulted groups to `todo` while atomic rows were `pending`). The
+  durable fix: **one canonical definition** (in `protocol.md`); every other surface **references by
+  name, never enumerates**; the strongest form is a role prompt that names *zero* state tokens; and
+  a selftest with **stable HTML-comment sentinels** + a **pointer-target check** (the heading the
+  pointer names actually exists in the copied runtime file). Honestly scope the guard: it proves
+  presence + pointer-resolves, not cross-surface semantic agreement.
+- **A flow node that cannot change state is a smell.** The Phase-1 panel caught two defects modeled
+  as no-ops: the cross-group panel (pass-through to Gate 2) and a "no-actionable-change" send-back
+  (fixpoint re-present that also bypassed 素). Every loop/branch must either make progress or escalate.
+- **Dogfooding validated the new Phase-2 loop.** Per-group draft → 素 challenge → converge →
+  [panel] → arbiter confirm worked; challenge-first surfaced real issues every round and protected
+  arbiter time (only panel-hardened, converged decompositions reached confirmation).
+- **Operational mechanics.** Flipping per-batch atomic statuses in a doc of identical status lines
+  required range-scoped edits (by group heading), and example/anchor strings (`pending` in
+  backticks) had to be protected from collateral global replacement.

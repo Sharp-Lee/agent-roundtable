@@ -54,7 +54,7 @@ requires `pending = 0`. Group status is derived from atomic rows (see `flow.md` 
 | G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | done |
 | G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | done |
 | G7 | `bin/roundtable` — selftest drift guard | R-ST-1..1 | 0 | done |
-| G8 | `README.md` / `README.en.md` + historical annotation | R-EX-1..1 | 0 | todo |
+| G8 | `README.md` / `README.en.md` + historical annotation | R-EX-1..1 | 0 | done |
 
 ## 5. Atomic requirement format
 
@@ -309,7 +309,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Edit the two READMEs and add the annotation line.
 - **验收:** Both READMEs updated consistently (zh/en convention preserved); annotation present;
   the historical diagram itself not retro-edited.
-- **状态:** todo
+- **状态:** done
 
 ## 7. Constraints & assumptions
 
