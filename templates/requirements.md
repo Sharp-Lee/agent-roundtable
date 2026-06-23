@@ -10,6 +10,15 @@
 **Gate 2:** pending | approved | sent back
 **Pending count:** <number of requirements whose WHY/WHAT are not arbiter-confirmed>
 
+<!-- rt-lifecycle-pointer -->
+Status follows `prompts/protocol.md` / `## Requirement Status Lifecycle` (initialized projects use `.roundtable/prompts/protocol.md`).
+
+<!-- rt-lifecycle-diagram -->
+Lifecycle: `pending → todo → doing → done`; `blocked` is only `doing → blocked → doing`.
+
+<!-- rt-lifecycle-note -->
+Group status is derived display; atomic rows are authoritative. `Pending` counts atomic rows whose status is `pending`.
+
 ## 1. Problem & goal
 
 <What are we solving, for whom, and why now. One or two paragraphs.>
@@ -31,11 +40,13 @@ If a requirement changes the locked direction, architecture, or flow, stop and r
 ## 4. 拆解清单
 
 List every runtime flow node before drafting requirements. Gate 2 requires `pending = 0`.
+Group status follows the rollup rule in `prompts/protocol.md` / `## Requirement Status Lifecycle`;
+fresh groups whose atomic rows are all unconfirmed roll up `pending`.
 
 | Group | Flow node | Business step | Requirement ids | Pending | Status |
 |---|---|---|---|---:|---|
-| G1 | F-001 | … | R-F001-1..n | 0 | todo |
-| G2 | F-002 | … | R-F002-1..n | 0 | todo |
+| G1 | F-001 | … | R-F001-1..n | n | pending |
+| G2 | F-002 | … | R-F002-1..n | n | pending |
 
 ## 5. Atomic requirement format
 
@@ -49,8 +60,9 @@ Each atomic requirement must include all seven fields:
 6. **验收**
 7. **状态**
 
-Status values for atomic requirements: `pending` / `todo` / `doing` / `done` / `blocked`.
-`pending` means the arbiter has not confirmed WHY/WHAT, so Gate 2 cannot be triggered.
+Status values for atomic requirements are defined only in `prompts/protocol.md` /
+`## Requirement Status Lifecycle`. New atomic requirements default to `pending`, meaning the arbiter
+has not confirmed WHY/WHAT, so Gate 2 cannot be triggered.
 
 ## 6. Requirements by flow node
 

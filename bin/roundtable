@@ -773,6 +773,16 @@ _selftest_assert_no_file() {
   fi
 }
 
+_selftest_assert_contains() {
+  local label="$1" path="$2" text="$3"
+  if grep -Fq -- "$text" "$path" 2>/dev/null; then
+    _selftest_pass "$label"
+  else
+    echo "  [FAIL] $label (missing '$text' in '$path')"
+    return 1
+  fi
+}
+
 # Verify the relay mechanism end-to-end with throwaway tmux + dummy panes
 # (no real CLIs needed). Asserts: handoff reaches channel.md, and the nudge
 # keystrokes are delivered to the target pane.
@@ -833,6 +843,11 @@ cmd_selftest() {
   _selftest_assert_file "init copies protocol contract" "$rt/prompts/protocol.md" || rc=1
   _selftest_assert_file "init copies xuan contract" "$rt/prompts/xuan.md" || rc=1
   _selftest_assert_file "init copies su contract" "$rt/prompts/su.md" || rc=1
+  _selftest_assert_contains "requirements template has lifecycle pointer sentinel" "$design/requirements.md" "<!-- rt-lifecycle-pointer -->" || rc=1
+  _selftest_assert_contains "requirements template has lifecycle diagram sentinel" "$design/requirements.md" "<!-- rt-lifecycle-diagram -->" || rc=1
+  _selftest_assert_contains "requirements template has lifecycle note sentinel" "$design/requirements.md" "<!-- rt-lifecycle-note -->" || rc=1
+  _selftest_assert_contains "requirements template default status is pending" "$design/requirements.md" "- **状态:** pending" || rc=1
+  _selftest_assert_contains "protocol contains lifecycle heading" "$rt/prompts/protocol.md" "## Requirement Status Lifecycle" || rc=1
   _selftest_assert_no_file "init does not create legacy requirements primary" "$rt/requirements.md" || rc=1
   _selftest_assert_no_file "init does not create legacy decisions primary" "$rt/decisions.md" || rc=1
   _selftest_assert_no_file "init does not copy legacy lead contract" "$rt/prompts/lead.md" || rc=1
