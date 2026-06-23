@@ -47,9 +47,9 @@ requires `pending = 0`. Group status is derived from atomic rows (see `flow.md` 
 
 | Group | Surface (architecture node) | Requirement ids | Pending | Status |
 |---|---|---|---:|---|
-| G1 | `protocol.md` — canonical Requirement Status Lifecycle | R-LC-1..4 | 0 | todo |
-| G2 | `protocol.md` — Phase 2 order + invariant + panel + reopen | R-P2-1..4 | 0 | todo |
-| G3 | `protocol.md` — Restart Recovery update | R-RR-1..2 | 0 | todo |
+| G1 | `protocol.md` — canonical Requirement Status Lifecycle | R-LC-1..4 | 0 | done |
+| G2 | `protocol.md` — Phase 2 order + invariant + panel + reopen | R-P2-1..4 | 0 | done |
+| G3 | `protocol.md` — Restart Recovery update | R-RR-1..2 | 0 | done |
 | G4 | `prompts/xuan.md` — 玄 duties | R-XU-1..3 | 0 | todo |
 | G5 | `prompts/su.md` — 素 duties | R-SU-1..2 | 0 | todo |
 | G6 | `templates/requirements.md` — pointer + sentinels + diagram + note | R-TM-1..2 | 0 | todo |
@@ -77,7 +77,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** New section in `protocol.md` matching `flow.md` §F-2 (state meanings + transitions).
 - **验收:** Section exists; lists exactly the five tokens with the four transitions and the
   `blocked` entry/exit/narrowing rules; no other file redefines the set.
-- **状态:** todo
+- **状态:** done
 
 #### R-LC-2 Confirmed vs locked decoupled
 - **编号:** R-LC-2
@@ -87,7 +87,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   at Gate 2); the lock is a file property, never a per-row state.
 - **HOW:** One paragraph in the lifecycle section.
 - **验收:** Text present and unambiguous.
-- **状态:** todo
+- **状态:** done
 
 #### R-LC-3 Group rollup precedence (atomic rows authoritative)
 - **编号:** R-LC-3
@@ -99,7 +99,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Subsection in the lifecycle section, mirroring `flow.md` §4.
 - **验收:** Precedence resolves every mix (incl. `blocked+doing`, `done+todo`, post-reopen
   `done+pending`); states the mixed-rollup caveat (inspect atomic rows after a reopen).
-- **状态:** todo
+- **状态:** done
 
 #### R-LC-4 Row mutation outside the state machine
 - **编号:** R-LC-4
@@ -110,7 +110,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   in-place rewrite; `done` rows stay in the baseline (not removed).
 - **HOW:** Short rule block in the lifecycle section, mirroring `flow.md` §3 "Row mutation".
 - **验收:** Rule present; covers delete/descope/replace + the WHY/WHAT-change handling.
-- **状态:** todo
+- **状态:** done
 
 ### G2 · `protocol.md` — Phase 2 order + invariant + panel + reopen
 
@@ -123,7 +123,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   hard invariant: 玄 never presents an un-challenged, un-converged draft to the arbiter.
 - **HOW:** Rewrite the Phase 2 section of `protocol.md` to match `flow.md` §F-1.
 - **验收:** Loop order + invariant present; "按组推进" explicit; Gate 2 = single baseline gate.
-- **状态:** todo
+- **状态:** done
 
 #### R-P2-2 Panel timing (before confirmation) + the three positions
 - **编号:** R-P2-2
@@ -135,7 +135,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   an accepted finding changes WHY/WHAT.
 - **HOW:** Encode `flow.md` "Panel timing" prose into the Phase 2 section.
 - **验收:** All three positions described; "disturbs confirmation iff WHY/WHAT changes" stated.
-- **状态:** todo
+- **状态:** done
 
 #### R-P2-3 Send-back transitions + cross-group-panel bound
 - **编号:** R-P2-3
@@ -147,7 +147,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   undispositioned risk; same/substantially-same risk uses the disagreement/escalation guardrail.
 - **HOW:** Encode `flow.md` §F-1 send-back + bound prose.
 - **验收:** No edge bypasses 素; no fixpoint re-present edge; bound tied to same-risk escalation.
-- **状态:** todo
+- **状态:** done
 
 #### R-P2-4 Gate-2 reopen `done`-row revalidation
 - **编号:** R-P2-4
@@ -158,7 +158,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   `pending`/`todo`; record the check in `decisions.md`.
 - **HOW:** Add the reopen precondition to the Phase 2 / Gate 2 prose.
 - **验收:** Precondition present; recovery-inspects-atomic-rows caveat noted.
-- **状态:** todo
+- **状态:** done
 
 ### G3 · `protocol.md` — Restart Recovery update
 
@@ -171,7 +171,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
   `doing` only.
 - **HOW:** Edit the Restart Recovery section of `protocol.md`.
 - **验收:** Step references the canonical set / lifecycle section, no two-state subset remains.
-- **状态:** todo
+- **状态:** done
 
 #### R-RR-2 In-flight invariant preservation on restart
 - **编号:** R-RR-2
@@ -184,7 +184,7 @@ as a `doing`-only exception). `pending` = arbiter has not confirmed WHY/WHAT.
 - **HOW:** Add the conservative rule to `protocol.md` Restart Recovery.
 - **验收:** Canonical rule present in `protocol.md`; conservative default is re-challenge, never
   present-unverified. (The role-duty half is verified by R-XU-3.)
-- **状态:** todo
+- **状态:** done
 
 ### G4 · `prompts/xuan.md` — 玄 duties
 
