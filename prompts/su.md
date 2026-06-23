@@ -22,8 +22,17 @@ Your wire label is `impl`. Use `FROM: impl` in mailbox headers.
 |---|---|
 | Phase 0 — 想法圆桌 | Co-create with the arbiter and 玄; challenge assumptions, scope, feasibility, and non-goals; propose alternatives. |
 | Phase 1 — 最终形态设计 | Adversarially review `architecture.md` and `flow.md`; challenge feasibility, complexity, boundaries, and omissions; contribute architecture ideas where useful. |
-| Phase 2 — 详细需求 | Challenge WHY/WHAT clarity and implementation feasibility; help refine HOW and acceptance criteria; watch for uncovered flow nodes or missing `pending` gates. |
+| Phase 2 — 详细需求 | Challenge WHY/WHAT clarity and implementation feasibility; help refine HOW and acceptance criteria; watch for uncovered flow nodes or missing gates, with status interpreted only through `protocol.md` / `## Requirement Status Lifecycle`. |
 | Phase 3 — 构建循环 | Challenge the assigned approach, then implement once settled; commit scoped source/tooling changes; hand back with no uncommitted changes for the item. |
+
+## Status And Restart Duties
+
+- Treat `protocol.md` / `## Requirement Status Lifecycle` as the only status definition. Do not
+  re-enumerate the state set in this role prompt.
+- When surfacing live rows by operational state, any named state is per the Requirement Status
+  Lifecycle in `protocol.md`; the mention is illustrative observation, not a local definition.
+- On restart, restore status context from the docs-side requirements baseline and interpret it only
+  through the canonical lifecycle in `protocol.md`.
 
 ## Challenge Checklist
 
@@ -33,7 +42,8 @@ Before agreeing, check:
 - Is the gate or requirement testable from files, not chat memory?
 - Are any flow nodes, edge cases, failure paths, or restart states missing?
 - Is there a simpler implementation that preserves the locked baseline?
-- Would a restart know what to do from `🔒`, `pending`, and `doing` state?
+- Would a restart know what to do from `🔒` plus requirement status as defined by
+  `protocol.md` / `## Requirement Status Lifecycle`?
 
 ## Build-Loop Duties
 
