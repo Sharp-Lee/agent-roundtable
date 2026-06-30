@@ -32,6 +32,8 @@ Primary tracked design artifacts live under `docs/design/roundtable/`:
 Runtime handoff state lives under `.roundtable/`:
 
 - `_idea.md` — Phase 0 direction statement and Gate 0 lock.
+- `roles/xuan.expert.md` / `roles/su.expert.md` — idea-scoped specialist overlays confirmed in
+  Phase 0a.
 - `channel.md` — relay-owned transcript history; never hand-edit.
 - `to-lead.md` / `to-impl.md` — latest mailbox messages.
 - `panes.env` / `kickoff-*.txt` / `.roundtable/prompts/` — runtime scaffolding.
@@ -59,7 +61,7 @@ the legacy `.roundtable/requirements.md` / `.roundtable/decisions.md` once, migr
 Start every mailbox message with this header, then `---`, then the body:
 
 ```text
-PHASE: 0-roundtable | 1-design | 2-requirements | 3-build
+PHASE: 0a-binding | 0-roundtable | 1-design | 2-requirements | 3-build
 FROM: <lead|impl>          # wire value for your own role
 STATUS: needs-reply | agreed | blocked | escalate
 ---
@@ -76,13 +78,33 @@ Status values:
 There is no `STATUS=gate`. A gate request is presented by 玄 in its pane output to the arbiter; the
 arbiter verdict is recorded in `docs/design/roundtable/decisions.md`.
 
-## The Four Phases
+## The Phases
+
+### Phase 0a — Specialist Role Binding
+
+Goal: bind idea-scoped specialist expertise before shaping the idea.
+
+- 玄 drafts specialist bindings for both roles after hearing the arbiter's raw idea.
+- 素 challenges whether the proposed bindings cover the idea category, core uncertainty,
+  deliverable shape, implementation risk, verification risk, and uncovered blind spots.
+- 玄 and 素 converge before asking the arbiter to confirm.
+- Arbiter confirmation is required before the bindings take effect.
+- The confirmed bindings are written to `.roundtable/roles/xuan.expert.md` and
+  `.roundtable/roles/su.expert.md`.
+- The rationale, rejected candidate roles, uncovered risks, and likely future panel triggers are
+  recorded in `docs/design/roundtable/decisions.md`.
+- Specialist bindings are overlays only: they never override this protocol, role contracts,
+  mailbox rules, gate rules, file ownership, or commit ownership.
+- If bindings are missing before Phase 0a is complete, ask the arbiter for the idea and start this
+  binding step. If bindings are missing after a recorded Phase 0a confirmation, set
+  `STATUS: blocked` and ask for recovery rather than inventing expertise from chat memory.
 
 ### Phase 0 — 想法圆桌
 
 Goal: turn the arbiter's raw idea into a clear, bounded direction.
 
-- 玄 and 素 both challenge, propose, and refine with the arbiter.
+- 玄 and 素 both challenge, propose, and refine with the arbiter while applying their confirmed
+  specialist bindings.
 - The direction statement is written to `.roundtable/_idea.md`.
 - The direction must contain five elements: core problem, user/value, one-line shape, explicit
   non-goals, and key open questions.
@@ -111,6 +133,8 @@ Goal: produce the architecture and runtime business flow that later requirements
 
 - Phase 1 panel is mandatory; Phase 2 panel is used when a requirement is high-complexity,
   high-risk, or crosses multiple flow nodes.
+- Specialist bindings are the persistent idea-scoped competence layer; panels are temporary
+  blind-spot reviews.
 - The panel is one-shot, spawned inside the document holder's own agent tooling. It does **not**
   use relay routing and does **not** add a tmux pane or resident agent.
 - Standard lenses include feasibility, security, scope creep, data flow, and operational
@@ -200,6 +224,8 @@ Goal: implement the locked baseline autonomously.
   tests, and other runtime/tooling files.
 - `.roundtable/to-*.md`, `.roundtable/panes.env`, `.roundtable/kickoff-*.txt`, and
   `.roundtable/prompts/` are runtime scaffolding and are never committed.
+- `.roundtable/roles/*.expert.md` are idea-scoped runtime overlays. They are read on startup and
+  restart, but they are not relay participants and are not committed by this tool.
 - `channel.md` is relay-owned transcript state. Read it for recovery, but do not hand-edit it.
 - Commits must capture a real diff; never use `--allow-empty`.
 
@@ -282,13 +308,16 @@ handled by 玄 + 素. They do not change the row's status and do not require arb
 
 On restart, read files in this order:
 
-1. `.roundtable/_idea.md` for direction and Gate 0 lock.
-2. `docs/design/roundtable/architecture.md` and `flow.md` for Gate 1 lock.
-3. `docs/design/roundtable/requirements.md` for Gate 2 lock and Requirement Status Lifecycle
+1. `.roundtable/roles/xuan.expert.md` or `.roundtable/roles/su.expert.md` for the current idea's
+   specialist overlay.
+2. `.roundtable/_idea.md` for direction and Gate 0 lock.
+3. `docs/design/roundtable/architecture.md` and `flow.md` for Gate 1 lock.
+4. `docs/design/roundtable/requirements.md` for Gate 2 lock and Requirement Status Lifecycle
    state (`pending` / `todo` / `doing` / `done` / `blocked`).
-4. `docs/design/roundtable/decisions.md` for gate verdicts and settled rationale.
-5. `.roundtable/channel.md` for handoff history.
-6. Your inbox for the latest actionable handoff.
+5. `docs/design/roundtable/decisions.md` for gate verdicts, Phase 0a binding rationale, and
+   settled decisions.
+6. `.roundtable/channel.md` for handoff history.
+7. Your inbox for the latest actionable handoff.
 
 `🔒` lock markers are authoritative. Do not redo locked phases unless a gate is explicitly reopened.
 For `doing` or `blocked` items, verify whether the work actually completed or the re-entry condition

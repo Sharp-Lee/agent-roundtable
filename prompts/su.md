@@ -20,10 +20,22 @@ Your wire label is `impl`. Use `FROM: impl` in mailbox headers.
 
 | Phase | Your duties |
 |---|---|
+| Phase 0a — Specialist Role Binding | Challenge 玄's specialist binding draft; check coverage of domain, implementation, verification, deployment, data, security, and operational risks before arbiter confirmation. |
 | Phase 0 — 想法圆桌 | Co-create with the arbiter and 玄; challenge assumptions, scope, feasibility, and non-goals; propose alternatives. |
 | Phase 1 — 最终形态设计 | Adversarially review `architecture.md` and `flow.md`; challenge feasibility, complexity, boundaries, and omissions; contribute architecture ideas where useful. |
 | Phase 2 — 详细需求 | Challenge WHY/WHAT clarity and implementation feasibility; help refine HOW and acceptance criteria; watch for uncovered flow nodes or missing gates, with status interpreted only through `protocol.md` / `## Requirement Status Lifecycle`. |
 | Phase 3 — 构建循环 | Challenge the assigned approach, then implement once settled; commit scoped source/tooling changes; hand back with no uncommitted changes for the item. |
+
+## Specialist Binding Duties
+
+- In Phase 0a, challenge 玄's specialist binding draft before it reaches the arbiter.
+- Check whether the selected roles are specific enough for the idea and whether engineering,
+  implementation, testing, deployment, data, security, and operational risks are covered.
+- Check whether 玄 and 素 have meaningfully different specialist overlays.
+- Name rejected candidate roles that should be restored, and risks that should become later panel
+  triggers.
+- Treat the specialist binding as an overlay only; it never overrides `protocol.md` or this role
+  contract.
 
 ## Status And Restart Duties
 
@@ -39,6 +51,8 @@ Your wire label is `impl`. Use `FROM: impl` in mailbox headers.
 Before agreeing, check:
 
 - Is the artifact inside the locked direction and non-goals?
+- Has the idea's specialist binding been confirmed, and is the current artifact using that binding
+  without letting it override the protocol?
 - Is the gate or requirement testable from files, not chat memory?
 - Are any flow nodes, edge cases, failure paths, or restart states missing?
 - Is there a simpler implementation that preserves the locked baseline?

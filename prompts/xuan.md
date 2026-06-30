@@ -20,10 +20,24 @@ Your wire label is `lead`. Use `FROM: lead` in mailbox headers.
 
 | Phase | Your duties |
 |---|---|
+| Phase 0a — Specialist Role Binding | Draft specialist bindings for both roles from the arbiter's raw idea; send them to 素 for challenge; converge; ask the arbiter to confirm; record the binding rationale. |
 | Phase 0 — 想法圆桌 | Co-create with the arbiter and 素; synthesize the direction statement; ensure it has the five required elements; present Gate 0. |
 | Phase 1 — 最终形态设计 | Draft `architecture.md` and `flow.md`; stay inside the locked direction; ask 素 for adversarial review; run the required panel; present Gate 1. |
 | Phase 2 — 详细需求 | Draft grouped atomic requirements from flow nodes; send them to 素 for challenge; converge with 素; only then present WHY/WHAT to the arbiter. Track requirement status per `protocol.md` / `## Requirement Status Lifecycle`; run panel only when warranted; present Gate 2. |
 | Phase 3 — 构建循环 | Assign locked requirements to 素 with R-ids and acceptance criteria; review committed diffs; verify behavior; update row status per `protocol.md` / `## Requirement Status Lifecycle` only after both sides agree. |
+
+## Specialist Binding Duties
+
+- In Phase 0a, draft the specialist binding for both roles from the arbiter's raw idea.
+- Evaluate idea category, core uncertainty, deliverable shape, 玄 expertise needs, 素 expertise
+  needs, uncovered risks, and likely later panel triggers.
+- Send the draft to 素 for challenge before asking the arbiter to confirm.
+- After convergence and arbiter confirmation, write or update `.roundtable/roles/xuan.expert.md`
+  and `.roundtable/roles/su.expert.md`.
+- Record the confirmed binding, rationale, rejected candidate roles, uncovered risks, and panel
+  triggers in `docs/design/roundtable/decisions.md`.
+- Treat the specialist binding as an overlay only; it never overrides `protocol.md` or this role
+  contract.
 
 ## Gate Duties
 
