@@ -500,6 +500,11 @@ cmd_new() {
   if ! git -C "$root" worktree add -b "$branch" "$wt" HEAD; then
     die "could not create worktree $wt"
   fi
+  if ! rm -rf "$wt/.roundtable" "$wt/docs/design/roundtable"; then
+    git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true
+    git -C "$root" branch -D "$branch" >/dev/null 2>&1 || true
+    die "could not reset roundtable state in $wt"
+  fi
   if ! "$TOOL_ROOT/bin/roundtable" init "$wt"; then
     git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true
     git -C "$root" branch -D "$branch" >/dev/null 2>&1 || true
@@ -959,6 +964,8 @@ cmd_selftest() {
   cmd_init "$git_proj" >/dev/null
   printf 'source idea sentinel\n' > "$git_proj/.roundtable/_idea.md"
   printf 'source requirements sentinel\n' > "$git_proj/docs/design/roundtable/requirements.md"
+  git -C "$git_proj" add docs/design/roundtable .roundtable
+  git -C "$git_proj" commit -q -m "commit old roundtable docs"
   git_name="sample"
   git_branch="codex/$git_name"
   git_wt="$(cd "$git_proj" && _worktree_for_name "$git_name")"
@@ -966,8 +973,8 @@ cmd_selftest() {
   git -C "$cleanup_proj" init -q
   git -C "$cleanup_proj" config user.email selftest@example.invalid
   git -C "$cleanup_proj" config user.name "Roundtable Selftest"
-  printf 'blocks roundtable init\n' > "$cleanup_proj/.roundtable"
-  git -C "$cleanup_proj" add .roundtable
+  printf 'blocks roundtable reset\n' > "$cleanup_proj/docs"
+  git -C "$cleanup_proj" add docs
   git -C "$cleanup_proj" commit -q -m "init cleanup selftest repo"
   cleanup_name="broken"
   cleanup_branch="codex/$cleanup_name"
@@ -1045,6 +1052,7 @@ cmd_selftest() {
   fi
   _selftest_assert_file "new worktree has runtime state" "$git_wt/.roundtable/_idea.md" || rc=1
   _selftest_assert_file "new worktree has docs requirements" "$git_wt/docs/design/roundtable/requirements.md" || rc=1
+  _selftest_assert_contains "new worktree requirements has default template marker" "$git_wt/docs/design/roundtable/requirements.md" "<!-- rt-lifecycle-pointer -->" || rc=1
   if git -C "$git_proj" show-ref --verify --quiet "refs/heads/$git_branch"; then
     _selftest_pass "new creates idea branch"
   else
@@ -1107,10 +1115,10 @@ cmd_selftest() {
     _selftest_pass "new does not create worktree for dirty source"
   fi
   if (cd "$cleanup_proj" && cmd_new "$cleanup_name" >/dev/null 2>&1); then
-    _selftest_fail "new reports init failure after worktree add" || true
+    _selftest_fail "new reports reset failure after worktree add" || true
     rc=1
   else
-    _selftest_pass "new reports init failure after worktree add"
+    _selftest_pass "new reports reset failure after worktree add"
   fi
   _selftest_assert_no_file "new removes failed-init worktree" "$cleanup_wt" || rc=1
   if git -C "$cleanup_proj" show-ref --verify --quiet "refs/heads/$cleanup_branch"; then
