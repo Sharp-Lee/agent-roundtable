@@ -1010,22 +1010,27 @@ cmd_selftest() {
   _selftest_assert_file "init copies protocol contract" "$rt/prompts/protocol.md" || rc=1
   _selftest_assert_file "init copies xuan contract" "$rt/prompts/xuan.md" || rc=1
   _selftest_assert_file "init copies su contract" "$rt/prompts/su.md" || rc=1
+  _selftest_assert_file "init creates xuan specialist binding" "$rt/roles/xuan.expert.md" || rc=1
+  _selftest_assert_file "init creates su specialist binding" "$rt/roles/su.expert.md" || rc=1
+  _selftest_assert_contains "xuan specialist binding names protocol boundary" "$rt/roles/xuan.expert.md" "This specialist overlay never overrides protocol.md, xuan.md, mailbox rules, gate rules, or commit ownership." || rc=1
+  _selftest_assert_contains "su specialist binding names protocol boundary" "$rt/roles/su.expert.md" "This specialist overlay never overrides protocol.md, su.md, mailbox rules, gate rules, or commit ownership." || rc=1
   _selftest_assert_contains "requirements template has lifecycle pointer sentinel" "$design/requirements.md" "<!-- rt-lifecycle-pointer -->" || rc=1
   _selftest_assert_contains "requirements template has lifecycle diagram sentinel" "$design/requirements.md" "<!-- rt-lifecycle-diagram -->" || rc=1
   _selftest_assert_contains "requirements template has lifecycle note sentinel" "$design/requirements.md" "<!-- rt-lifecycle-note -->" || rc=1
   _selftest_assert_contains "requirements template default status is pending" "$design/requirements.md" "- **状态:** pending" || rc=1
   _selftest_assert_contains "protocol contains lifecycle heading" "$rt/prompts/protocol.md" "## Requirement Status Lifecycle" || rc=1
+  _selftest_assert_contains "protocol contains specialist binding phase" "$rt/prompts/protocol.md" "### Phase 0a — Specialist Role Binding" || rc=1
   _selftest_assert_no_file "init does not create legacy requirements primary" "$rt/requirements.md" || rc=1
   _selftest_assert_no_file "init does not create legacy decisions primary" "$rt/decisions.md" || rc=1
   _selftest_assert_no_file "init does not copy legacy lead contract" "$rt/prompts/lead.md" || rc=1
   _selftest_assert_no_file "init does not copy legacy impl contract" "$rt/prompts/impl.md" || rc=1
   case "$(_kickoff_text lead)" in
-    *".roundtable/prompts/xuan.md"*docs/design/roundtable/requirements.md*) _selftest_pass "玄 kickoff references xuan contract and docs baseline" ;;
-    *) _selftest_fail "玄 kickoff references xuan contract and docs baseline" || true; rc=1 ;;
+    *".roundtable/prompts/xuan.md"*".roundtable/roles/xuan.expert.md"*docs/design/roundtable/requirements.md*) _selftest_pass "玄 kickoff references xuan contract, specialist binding, and docs baseline" ;;
+    *) _selftest_fail "玄 kickoff references xuan contract, specialist binding, and docs baseline" || true; rc=1 ;;
   esac
   case "$(_kickoff_text su)" in
-    *".roundtable/prompts/su.md"*docs/design/roundtable/requirements.md*) _selftest_pass "su kickoff alias references su contract and docs baseline" ;;
-    *) _selftest_fail "su kickoff alias references su contract and docs baseline" || true; rc=1 ;;
+    *".roundtable/prompts/su.md"*".roundtable/roles/su.expert.md"*docs/design/roundtable/requirements.md*) _selftest_pass "su kickoff alias references su contract, specialist binding, and docs baseline" ;;
+    *) _selftest_fail "su kickoff alias references su contract, specialist binding, and docs baseline" || true; rc=1 ;;
   esac
   _selftest_assert_eq "xuan alias maps to lead wire role" "lead" "$(_role_wire xuan)" || rc=1
   _selftest_assert_eq "su alias maps to impl wire role" "impl" "$(_role_wire su)" || rc=1
@@ -1051,6 +1056,8 @@ cmd_selftest() {
     _selftest_fail "new prints named start next step" || true; rc=1
   fi
   _selftest_assert_file "new worktree has runtime state" "$git_wt/.roundtable/_idea.md" || rc=1
+  _selftest_assert_file "new worktree has xuan specialist binding" "$git_wt/.roundtable/roles/xuan.expert.md" || rc=1
+  _selftest_assert_file "new worktree has su specialist binding" "$git_wt/.roundtable/roles/su.expert.md" || rc=1
   _selftest_assert_file "new worktree has docs requirements" "$git_wt/docs/design/roundtable/requirements.md" || rc=1
   _selftest_assert_contains "new worktree requirements has default template marker" "$git_wt/docs/design/roundtable/requirements.md" "<!-- rt-lifecycle-pointer -->" || rc=1
   if git -C "$git_proj" show-ref --verify --quiet "refs/heads/$git_branch"; then
