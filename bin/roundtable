@@ -613,7 +613,7 @@ EOF
 
   echo "Initialized roundtable in $rt"
   echo "Design artifacts (commit these):  docs/design/roundtable/{architecture,flow,requirements,decisions}.md"
-  echo "Runtime state (do not commit):     .roundtable/{_idea,channel,to-*,panes,kickoff,prompts}"
+  echo "Runtime state (do not commit):     .roundtable/{_idea,channel,roles,to-*,panes,kickoff,prompts}"
   echo "Next:  cd '$target' && roundtable start"
 }
 
