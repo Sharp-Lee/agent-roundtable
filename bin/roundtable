@@ -895,6 +895,7 @@ cmd_selftest() {
 
   local proj="" legacy_proj="" sess="" rt="" design="" legacy_rt="" legacy_design="" got="" relay_pid="" rc=0
   local git_proj="" git_wt="" git_name="" git_branch="" git_new_output="" git_expected_next=""
+  local dirty_proj=""
   local cleanup_proj="" cleanup_name="" cleanup_branch="" cleanup_wt=""
   local lead_pane="" impl_pane="" layout_sess="" foreign_sess=""
   local layout_lead="" layout_impl="" layout_command="" layout_relay="" foreign_pane=""
@@ -919,6 +920,7 @@ cmd_selftest() {
     [ -z "${legacy_proj:-}" ] || rm -rf "$legacy_proj"
     [ -z "${git_proj:-}" ] || rm -rf "$git_proj"
     [ -z "${git_wt:-}" ] || rm -rf "$git_wt"
+    [ -z "${dirty_proj:-}" ] || rm -rf "$dirty_proj"
     [ -z "${cleanup_proj:-}" ] || rm -rf "$cleanup_proj"
     [ -z "${cleanup_wt:-}" ] || rm -rf "$cleanup_wt"
   }
@@ -1066,6 +1068,24 @@ cmd_selftest() {
     _selftest_pass "path argument remains legacy directory target"
   else
     _selftest_fail "path argument remains legacy directory target" || true; rc=1
+  fi
+  if [ "$(_session_for "$git_wt")" != "$(_session_for "$git_proj")" ]; then
+    _selftest_pass "named worktree derives separate session"
+  else
+    _selftest_fail "named worktree derives separate session" || true; rc=1
+  fi
+  dirty_proj="$(mktemp -d)"
+  git -C "$dirty_proj" init -q
+  git -C "$dirty_proj" config user.email selftest@example.invalid
+  git -C "$dirty_proj" config user.name "Roundtable Selftest"
+  printf 'clean\n' > "$dirty_proj/file.txt"
+  git -C "$dirty_proj" add file.txt
+  git -C "$dirty_proj" commit -q -m "init dirty repo"
+  printf 'dirty\n' > "$dirty_proj/file.txt"
+  if (cd "$dirty_proj" && cmd_new dirty >/dev/null 2>&1); then
+    _selftest_fail "new refuses dirty tracked source" || true; rc=1
+  else
+    _selftest_pass "new refuses dirty tracked source"
   fi
   if (cd "$cleanup_proj" && cmd_new "$cleanup_name" >/dev/null 2>&1); then
     _selftest_fail "new reports init failure after worktree add" || true
