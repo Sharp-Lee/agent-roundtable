@@ -45,7 +45,9 @@ real Claude Code and real Codex clients run unchanged in real terminals.
 ## The workflow
 
 ```
-Phase 0  Idea roundtable       raw idea -> three-party shaping -> direction statement  (you + 玄 + 素)
+Phase 0a Specialist binding    玄 proposes -> 素 challenges -> converge -> you confirm
+                               -> write .roundtable/roles/{xuan,su}.expert.md
+Phase 0  Idea roundtable       玄/素 shape direction with bound expertise -> direction statement
                                ╔═ Gate 0: direction lock ═╗
 Phase 1  Final-form design     玄 drafts architecture/flow -> 素 adversarial review
                                -> one-shot panel -> ╔═ Gate 1: final-form confirmation ═╗
@@ -58,13 +60,16 @@ Phase 3  Build loop            per requirement: assign -> challenge -> 素 imple
                          all items done -> halt and report
 ```
 
-The panel is not a resident agent: it is mandatory in Phase 1, optional in Phase 2 for risky or
-complex requirements, one-shot, internal to the document holder's tooling, and adds no relay route
-or tmux pane.
+Specialist binding is the persistent idea-scoped competence layer: 玄/素 remain fixed process
+roles, but first bind professional expertise for the current idea. The panel is not a resident
+agent: it is mandatory in Phase 1, optional in Phase 2 for risky or complex requirements, one-shot,
+internal to the document holder's tooling, and adds no relay route or tmux pane.
 
 The shared rules (channel, message format, commit ownership, guardrails) live in
-`prompts/protocol.md`; the role-specific duties are in `prompts/xuan.md` and `prompts/su.md`.
-All three are copied into each project so the agents read them as their operating contract.
+`prompts/protocol.md`; the fixed role duties are in `prompts/xuan.md` and `prompts/su.md`; each
+idea's specialist bindings live in `.roundtable/roles/xuan.expert.md` and
+`.roundtable/roles/su.expert.md`. On startup, agents read `protocol.md -> xuan.md/su.md ->
+expert.md`.
 
 ## Requirements
 
@@ -133,7 +138,8 @@ session may still need them. The file popup does not implement a picker or file 
 managers run with your own config and may allow navigation or mutation.
 
 On first start, the **kickoff is automatic**: once each pane's CLI output looks settled,
-`roundtable start` sends it the matching operating contract (`protocol.md` + `xuan.md`/`su.md`).
+`roundtable start` sends it the matching operating contract (`protocol.md` + `xuan.md`/`su.md` +
+the current idea's `*.expert.md`).
 You only need to give your raw idea to the **left (玄)** pane — the relay takes over from there.
 
 Automatic kickoff assumes both CLIs are already authenticated and configured, and that they land on
@@ -150,10 +156,11 @@ If auto-send mis-fires (e.g. it lands in a pane that wasn't fully ready), there 
   `kickoff-impl.txt` (`cat` them from inside tmux — readable even after you've attached).
 
 The kickoff is also **state-aware**: it tells each pane to re-read `.roundtable/_idea.md`,
+`.roundtable/roles/{xuan,su}.expert.md`,
 `docs/design/roundtable/{architecture,flow,requirements,decisions}.md`, `.roundtable/channel.md`,
 and its inbox, so re-starting a project mid-flight resumes from the last handoff (on a fresh
-project those artifacts are empty templates, so it just waits for your idea). If you only detached
-from a still-running session, no kickoff is needed — just `tmux attach` back.
+project those artifacts are empty templates, so it starts with Phase 0a specialist binding). If
+you only detached from a still-running session, no kickoff is needed — just `tmux attach` back.
 
 Set `AUTO_KICKOFF=0` to do it manually instead (paste these once each pane is up):
 
@@ -197,11 +204,11 @@ roundtable start
 ```
 
 Each pane gets a brand-new CLI process (no memory of the old one), so the auto-kickoff re-sends the
-operating contract *and* tells each side to re-read the docs design artifacts,
+operating contract *and* tells each side to re-read the expert bindings, docs design artifacts,
 `.roundtable/channel.md`, and its inbox. A project that was mid-build resumes from the last
-handoff; a fresh project just waits for your idea. This is the normal path after a `stop`, a crash,
-a machine reboot, or a CLI update — the artifacts are the resume point, so you essentially never
-re-paste anything.
+handoff; a fresh project first runs Phase 0a specialist binding. This is the normal path after a
+`stop`, a crash, a machine reboot, or a CLI update — the artifacts are the resume point, so you
+essentially never re-paste anything.
 
 **Run several at once.** Each project gets its own session (`roundtable-<name>-<hash>`), so
 multiple roundtables coexist. `roundtable list` shows the running ones.
@@ -244,6 +251,7 @@ idea all live in that worktree.
 | `docs/design/roundtable/requirements.md` | Gate 2 locked detailed requirements + work list | yes |
 | `docs/design/roundtable/decisions.md` | gate verdicts, resolved disagreements + rationale | yes |
 | `.roundtable/_idea.md` | Gate 0 direction statement | no (runtime state) |
+| `.roundtable/roles/xuan.expert.md`, `su.expert.md` | current idea's specialist bindings for 玄/素 | no (runtime state) |
 | `.roundtable/channel.md` | relay transcript of every handoff | no (runtime state) |
 | `.roundtable/prompts/` | copied role contracts the agents read | no (runtime state) |
 | `.roundtable/to-lead.md`, `to-impl.md` | wire-named transient mailboxes | no (gitignored) |
