@@ -425,6 +425,57 @@ _session_for() {
   printf 'roundtable-%s-%s' "${slug:-proj}" "$hash"
 }
 
+_validate_idea_name() {
+  local name="${1:-}"
+  [[ "$name" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || return 1
+  [[ "$name" != .* ]] || return 1
+  [[ "$name" != *"/"* ]] || return 1
+}
+
+_repo_root() {
+  git -C "${1:-$PWD}" rev-parse --show-toplevel 2>/dev/null
+}
+
+_source_is_clean() {
+  local root="$1"
+  [ -z "$(git -C "$root" status --porcelain --untracked-files=no)" ]
+}
+
+_branch_exists() {
+  local root="$1" branch="$2"
+  git -C "$root" show-ref --verify --quiet "refs/heads/$branch"
+}
+
+_looks_like_dir_arg() {
+  local arg="${1:-}"
+  [ -n "$arg" ] || return 1
+  [[ "$arg" == */* ]] || [ -d "$arg" ]
+}
+
+_worktree_for_name() {
+  local name="$1" root base parent
+  _validate_idea_name "$name" || die "invalid idea name '$name' (use [A-Za-z0-9][A-Za-z0-9._-]*; no leading dot, spaces, or slashes)"
+  root="$(_repo_root "$PWD")" || die "not inside a git worktree"
+  base="$(basename "$root")"
+  if [[ "$base" == *."$name" ]]; then
+    printf '%s\n' "$root"
+    return 0
+  fi
+  parent="$(dirname "$root")"
+  printf '%s/%s.%s\n' "$parent" "$base" "$name"
+}
+
+_target_from_arg() {
+  local arg="${1:-}"
+  if [ -z "$arg" ]; then
+    printf '%s\n' "$PWD"
+  elif _looks_like_dir_arg "$arg"; then
+    cd "$arg" && pwd
+  else
+    _worktree_for_name "$arg"
+  fi
+}
+
 cmd_init() {
   local target="${1:-$PWD}"
   target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
@@ -862,6 +913,16 @@ cmd_selftest() {
   esac
   _selftest_assert_eq "xuan alias maps to lead wire role" "lead" "$(_role_wire xuan)" || rc=1
   _selftest_assert_eq "su alias maps to impl wire role" "impl" "$(_role_wire su)" || rc=1
+  if _validate_idea_name "alpha-1_ok.name"; then
+    _selftest_pass "idea name validation accepts safe slug"
+  else
+    _selftest_fail "idea name validation accepts safe slug" || true; rc=1
+  fi
+  if _validate_idea_name ".hidden" || _validate_idea_name "bad/name" || _validate_idea_name "bad name"; then
+    _selftest_fail "idea name validation rejects unsafe slugs" || true; rc=1
+  else
+    _selftest_pass "idea name validation rejects unsafe slugs"
+  fi
   if grep -q "legacy requirements sentinel" "$legacy_design/requirements.md" 2>/dev/null; then
     _selftest_pass "init migrates legacy requirements to docs"
   else
