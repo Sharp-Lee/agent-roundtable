@@ -8,11 +8,11 @@
 # touches the agents' model loop or native abilities.
 #
 # Subcommands (also available as `rt`):
-#   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
+#   roundtable init   [name|dir]   Scaffold .roundtable/ in a target project (default: cwd)
 #   roundtable new    [--start] <name>  Create a named idea worktree
-#   roundtable start  [dir]   Launch the per-project tmux workbench and attach
-#   roundtable stop   [dir]   Kill this project's session (default: cwd)
-#   roundtable kickoff [xuan|su|lead|impl]  Re-send the kickoff prompt (default: both)
+#   roundtable start  [name|dir]   Launch the per-project tmux workbench and attach
+#   roundtable stop   [name|dir]   Kill this project's session (default: cwd)
+#   roundtable kickoff [name] [xuan|su|lead|impl]  Re-send the kickoff prompt (default: both)
 #   roundtable list           List running roundtable sessions
 #   roundtable selftest       Verify relay/layout/key checks on this machine (no real CLIs needed)
 #
@@ -326,11 +326,11 @@ Keys:
   prefix+$mouse_key  toggle mouse on/off
 
 Commands:
-  rt init [dir]          scaffold docs/design/roundtable/ + .roundtable/
+  rt init [name|dir]     scaffold docs/design/roundtable/ + .roundtable/
   rt new [--start] <name>  create a named idea worktree
-  rt start [dir]         launch the workbench
-  rt stop [dir]          stop this project's session
-  rt kickoff [xuan|su]   re-send kickoff prompts (lead|impl legacy aliases)
+  rt start [name|dir]    launch the workbench
+  rt stop [name|dir]     stop this project's session
+  rt kickoff [name] [xuan|su]  re-send kickoff prompts (lead|impl legacy aliases)
   rt list                list running roundtable sessions
   rt selftest            verify relay/layout/key checks
 
@@ -350,7 +350,7 @@ Environment:
 Reminders:
   Detach from tmux: prefix+d
   Relay stopped or killed: rt stop && rt start
-  Kickoff mis-fired: rt kickoff [xuan|su]
+  Kickoff mis-fired: rt kickoff [name] [xuan|su]
   Typing does nothing / keys like 'f' show "(jump to forward)"?
     The wheel left you in copy-mode -- press q or Esc to get back to input.
 EOF
@@ -511,13 +511,14 @@ cmd_new() {
   if [ "$start_after" -eq 1 ]; then
     cmd_start "$wt"
   else
-    echo "Next:     cd $(_shell_quote "$wt") && roundtable start"
+    echo "Next:     roundtable start $name"
   fi
 }
 
 cmd_init() {
-  local target="${1:-$PWD}"
-  target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
+  local target
+  target="$(_target_from_arg "${1:-}")" || die "no such directory or named worktree: ${1:-$PWD}"
+  [ -d "$target" ] || die "no such directory or named worktree: $target"
   local rt="$target/.roundtable"
   local design="$target/docs/design/roundtable"
   mkdir -p "$rt/prompts" "$design"
@@ -572,8 +573,9 @@ EOF
 }
 
 cmd_start() {
-  local target="${1:-$PWD}"
-  target="$(cd "$target" && pwd)" || die "no such directory: ${1:-$PWD}"
+  local target
+  target="$(_target_from_arg "${1:-}")" || die "no such directory or named worktree: ${1:-$PWD}"
+  [ -d "$target" ] || die "no such directory or named worktree: $target"
   local rt="$target/.roundtable"
   [ -d "$rt" ] || die "no .roundtable in $target -- run 'roundtable init' first"
   command -v tmux >/dev/null 2>&1 || die "tmux is required"
@@ -679,7 +681,7 @@ EOF
   # when auto-send mis-fires (a send can "succeed" yet land in a half-ready pane).
   printf '%s\n' "$lead_kick" > "$rt/kickoff-lead.txt" || start_fail "could not write kickoff-lead.txt"
   printf '%s\n' "$impl_kick" > "$rt/kickoff-impl.txt" || start_fail "could not write kickoff-impl.txt"
-  local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [xuan|su]' (lead|impl legacy aliases), or copy from .roundtable/kickoff-{lead,impl}.txt"
+  local fallback="If a pane didn't get its kickoff cleanly: re-send with 'roundtable kickoff [name] [xuan|su]' (lead|impl legacy aliases), or copy from .roundtable/kickoff-{lead,impl}.txt"
   local layout_banner
   if [ "$layout" = "workbench" ]; then
     layout_banner="TOP: 玄 (Claude Code) | 素 (Codex)   BOTTOM: command shell | relay watcher"
@@ -767,8 +769,9 @@ EOF
 }
 
 cmd_stop() {
-  local target="${1:-$PWD}"
-  target="$(cd "$target" 2>/dev/null && pwd)" || target="$PWD"
+  local target
+  target="$(_target_from_arg "${1:-}" 2>/dev/null || true)"
+  [ -n "$target" ] || target="$PWD"
   # Prefer the exact session this project recorded at start; else derive it.
   local sess="$SESSION" envfile="$target/.roundtable/panes.env"
   if [ -z "$sess" ] && [ -f "$envfile" ]; then
@@ -780,17 +783,27 @@ cmd_stop() {
 
 # Re-send the kickoff prompt to a running session's panes. Use when auto-kickoff
 # mis-fired (landed in a half-ready pane) -- run it once the CLI is fully up.
-#   roundtable kickoff            both panes
-#   roundtable kickoff xuan|su    just that pane (lead|impl legacy aliases)
+#   roundtable kickoff                 both panes
+#   roundtable kickoff xuan|su         just that pane (lead|impl legacy aliases)
+#   roundtable kickoff name xuan|su    named worktree pane
 cmd_kickoff() {
-  local only="${1:-both}"
+  local target="$PWD" only="both" first="${1:-}" second="${2:-}"
+  if [ -n "$second" ]; then
+    target="$(_target_from_arg "$first")" || die "no such named worktree: $first"
+    only="$second"
+  elif [ -n "$first" ]; then
+    case "$first" in
+      both|xuan|lead|su|impl) only="$first" ;;
+      *) target="$(_target_from_arg "$first")" || die "no such named worktree: $first" ;;
+    esac
+  fi
   case "$only" in
     both) ;;
     xuan|lead) only="lead" ;;
     su|impl) only="impl" ;;
-    *) die "usage: roundtable kickoff [xuan|su|lead|impl]" ;;
+    *) die "usage: roundtable kickoff [name] [xuan|su|lead|impl]" ;;
   esac
-  local envfile="$PWD/.roundtable/panes.env"
+  local envfile="$target/.roundtable/panes.env"
   [ -f "$envfile" ] || die "no session recorded for this project -- run 'roundtable start' first (from the project dir)"
   local sess lead_pane impl_pane
   sess="$(sed -n 's/^SESSION=//p' "$envfile")"
@@ -1018,11 +1031,11 @@ cmd_selftest() {
   else
     _selftest_fail "new creates named idea worktree" || true; rc=1
   fi
-  git_expected_next="Next:     cd $(_shell_quote "$git_wt") && roundtable start"
+  git_expected_next="Next:     roundtable start $git_name"
   if printf '%s\n' "$git_new_output" | grep -Fxq "$git_expected_next"; then
-    _selftest_pass "new prints currently usable path-based next step"
+    _selftest_pass "new prints named start next step"
   else
-    _selftest_fail "new prints currently usable path-based next step" || true; rc=1
+    _selftest_fail "new prints named start next step" || true; rc=1
   fi
   _selftest_assert_file "new worktree has runtime state" "$git_wt/.roundtable/_idea.md" || rc=1
   _selftest_assert_file "new worktree has docs requirements" "$git_wt/docs/design/roundtable/requirements.md" || rc=1
@@ -1038,6 +1051,21 @@ cmd_selftest() {
     _selftest_pass "new keeps source roundtable state isolated"
   else
     _selftest_fail "new keeps source roundtable state isolated" || true; rc=1
+  fi
+  if (cd "$git_proj" && [ "$(_target_from_arg "$git_name")" = "$git_wt" ]); then
+    _selftest_pass "name argument resolves to sibling worktree"
+  else
+    _selftest_fail "name argument resolves to sibling worktree" || true; rc=1
+  fi
+  if (cd "$git_wt" && [ "$(_target_from_arg "$git_name")" = "$git_wt" ]); then
+    _selftest_pass "name argument resolves to current named worktree"
+  else
+    _selftest_fail "name argument resolves to current named worktree" || true; rc=1
+  fi
+  if [ "$(_target_from_arg "$git_wt")" = "$git_wt" ]; then
+    _selftest_pass "path argument remains legacy directory target"
+  else
+    _selftest_fail "path argument remains legacy directory target" || true; rc=1
   fi
   if (cd "$cleanup_proj" && cmd_new "$cleanup_name" >/dev/null 2>&1); then
     _selftest_fail "new reports init failure after worktree add" || true
@@ -1173,11 +1201,11 @@ main() {
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
-  init  [dir]         scaffold docs/design/roundtable/ + .roundtable/
+  init  [name|dir]    scaffold docs/design/roundtable/ + .roundtable/
   new   [--start] <name>  create a named idea worktree
-  start [dir]         launch the 4-pane tmux workbench and attach
-  stop  [dir]         kill this project's session (default: current directory)
-  kickoff [xuan|su]   re-send the kickoff prompt (default: both; lead|impl legacy aliases)
+  start [name|dir]    launch the 4-pane tmux workbench and attach
+  stop  [name|dir]    kill this project's session (default: current directory)
+  kickoff [name] [xuan|su]  re-send the kickoff prompt (default: both; lead|impl legacy aliases)
   list                list running roundtable sessions
   selftest            verify relay/layout/key checks on this machine (no real CLIs needed)
 
