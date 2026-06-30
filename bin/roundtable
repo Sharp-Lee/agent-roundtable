@@ -9,7 +9,7 @@
 #
 # Subcommands (also available as `rt`):
 #   roundtable init   [dir]   Scaffold .roundtable/ in a target project (default: cwd)
-#   roundtable new    <name>  Create a named idea worktree
+#   roundtable new    [--start] <name>  Create a named idea worktree
 #   roundtable start  [dir]   Launch the per-project tmux workbench and attach
 #   roundtable stop   [dir]   Kill this project's session (default: cwd)
 #   roundtable kickoff [xuan|su|lead|impl]  Re-send the kickoff prompt (default: both)
@@ -327,7 +327,7 @@ Keys:
 
 Commands:
   rt init [dir]          scaffold docs/design/roundtable/ + .roundtable/
-  rt new <name>          create a named idea worktree
+  rt new [--start] <name>  create a named idea worktree
   rt start [dir]         launch the workbench
   rt stop [dir]          stop this project's session
   rt kickoff [xuan|su]   re-send kickoff prompts (lead|impl legacy aliases)
@@ -497,15 +497,21 @@ cmd_new() {
   wt="$(_worktree_for_name "$name")"
   [ ! -e "$wt" ] || die "worktree path already exists: $wt"
 
-  git -C "$root" worktree add -b "$branch" "$wt" HEAD
-  cmd_init "$wt"
+  if ! git -C "$root" worktree add -b "$branch" "$wt" HEAD; then
+    die "could not create worktree $wt"
+  fi
+  if ! "$TOOL_ROOT/bin/roundtable" init "$wt"; then
+    git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true
+    git -C "$root" branch -D "$branch" >/dev/null 2>&1 || true
+    die "could not initialize roundtable in $wt"
+  fi
   echo "Created idea '$name'"
   echo "Branch:   $branch"
   echo "Worktree: $wt"
   if [ "$start_after" -eq 1 ]; then
     cmd_start "$wt"
   else
-    echo "Next:     roundtable start $name"
+    echo "Next:     cd $(_shell_quote "$wt") && roundtable start"
   fi
 }
 
@@ -874,10 +880,36 @@ cmd_selftest() {
   command -v tmux >/dev/null 2>&1 || die "tmux is required"
   command -v python3 >/dev/null 2>&1 || die "python3 is required"
 
-  local proj legacy_proj sess rt design legacy_rt legacy_design got relay_pid rc=0
-  local git_proj git_wt git_name git_branch git_src_sentinel git_wt_sentinel
-  local lead_pane impl_pane layout_sess foreign_sess
-  local layout_lead layout_impl layout_command layout_relay foreign_pane
+  local proj="" legacy_proj="" sess="" rt="" design="" legacy_rt="" legacy_design="" got="" relay_pid="" rc=0
+  local git_proj="" git_wt="" git_name="" git_branch="" git_new_output="" git_expected_next=""
+  local cleanup_proj="" cleanup_name="" cleanup_branch="" cleanup_wt=""
+  local lead_pane="" impl_pane="" layout_sess="" foreign_sess=""
+  local layout_lead="" layout_impl="" layout_command="" layout_relay="" foreign_pane=""
+  local cleanup_done=0
+  selftest_cleanup() {
+    [ "$cleanup_done" -eq 0 ] || return 0
+    cleanup_done=1
+    if [ -n "${relay_pid:-}" ]; then
+      kill "$relay_pid" 2>/dev/null || true
+      wait "$relay_pid" 2>/dev/null || true
+    fi
+    [ -z "${sess:-}" ] || tmux kill-session -t "$sess" 2>/dev/null || true
+    [ -z "${layout_sess:-}" ] || tmux kill-session -t "$layout_sess" 2>/dev/null || true
+    [ -z "${foreign_sess:-}" ] || tmux kill-session -t "$foreign_sess" 2>/dev/null || true
+    if [ -n "${git_proj:-}" ] && [ -n "${git_wt:-}" ]; then
+      git -C "$git_proj" worktree remove --force "$git_wt" >/dev/null 2>&1 || true
+    fi
+    if [ -n "${cleanup_proj:-}" ] && [ -n "${cleanup_wt:-}" ]; then
+      git -C "$cleanup_proj" worktree remove --force "$cleanup_wt" >/dev/null 2>&1 || true
+    fi
+    [ -z "${proj:-}" ] || rm -rf "$proj"
+    [ -z "${legacy_proj:-}" ] || rm -rf "$legacy_proj"
+    [ -z "${git_proj:-}" ] || rm -rf "$git_proj"
+    [ -z "${git_wt:-}" ] || rm -rf "$git_wt"
+    [ -z "${cleanup_proj:-}" ] || rm -rf "$cleanup_proj"
+    [ -z "${cleanup_wt:-}" ] || rm -rf "$cleanup_wt"
+  }
+  trap selftest_cleanup RETURN EXIT
   proj="$(mktemp -d)"
   legacy_proj="$(mktemp -d)"
   sess="rt_selftest_$$"
@@ -910,7 +942,17 @@ cmd_selftest() {
   printf 'source requirements sentinel\n' > "$git_proj/docs/design/roundtable/requirements.md"
   git_name="sample"
   git_branch="codex/$git_name"
-  git_wt="$(dirname "$git_proj")/$(basename "$git_proj").$git_name"
+  git_wt="$(cd "$git_proj" && _worktree_for_name "$git_name")"
+  cleanup_proj="$(mktemp -d)"
+  git -C "$cleanup_proj" init -q
+  git -C "$cleanup_proj" config user.email selftest@example.invalid
+  git -C "$cleanup_proj" config user.name "Roundtable Selftest"
+  printf 'blocks roundtable init\n' > "$cleanup_proj/.roundtable"
+  git -C "$cleanup_proj" add .roundtable
+  git -C "$cleanup_proj" commit -q -m "init cleanup selftest repo"
+  cleanup_name="broken"
+  cleanup_branch="codex/$cleanup_name"
+  cleanup_wt="$(cd "$cleanup_proj" && _worktree_for_name "$cleanup_name")"
 
   tmux kill-session -t "$sess" 2>/dev/null || true
   tmux kill-session -t "$layout_sess" 2>/dev/null || true
@@ -971,10 +1013,16 @@ cmd_selftest() {
   else
     _selftest_pass "idea name validation rejects unsafe slugs"
   fi
-  if (cd "$git_proj" && cmd_new "$git_name" >/dev/null); then
+  if git_new_output="$(cd "$git_proj" && cmd_new "$git_name")"; then
     _selftest_pass "new creates named idea worktree"
   else
     _selftest_fail "new creates named idea worktree" || true; rc=1
+  fi
+  git_expected_next="Next:     cd $(_shell_quote "$git_wt") && roundtable start"
+  if printf '%s\n' "$git_new_output" | grep -Fxq "$git_expected_next"; then
+    _selftest_pass "new prints currently usable path-based next step"
+  else
+    _selftest_fail "new prints currently usable path-based next step" || true; rc=1
   fi
   _selftest_assert_file "new worktree has runtime state" "$git_wt/.roundtable/_idea.md" || rc=1
   _selftest_assert_file "new worktree has docs requirements" "$git_wt/docs/design/roundtable/requirements.md" || rc=1
@@ -990,6 +1038,18 @@ cmd_selftest() {
     _selftest_pass "new keeps source roundtable state isolated"
   else
     _selftest_fail "new keeps source roundtable state isolated" || true; rc=1
+  fi
+  if (cd "$cleanup_proj" && cmd_new "$cleanup_name" >/dev/null 2>&1); then
+    _selftest_fail "new reports init failure after worktree add" || true
+    rc=1
+  else
+    _selftest_pass "new reports init failure after worktree add"
+  fi
+  _selftest_assert_no_file "new removes failed-init worktree" "$cleanup_wt" || rc=1
+  if git -C "$cleanup_proj" show-ref --verify --quiet "refs/heads/$cleanup_branch"; then
+    _selftest_fail "new deletes failed-init branch" || true; rc=1
+  else
+    _selftest_pass "new deletes failed-init branch"
   fi
   if grep -q "legacy requirements sentinel" "$legacy_design/requirements.md" 2>/dev/null; then
     _selftest_pass "init migrates legacy requirements to docs"
@@ -1090,11 +1150,8 @@ PY
     rc=1
   fi
 
-  tmux kill-session -t "$sess" 2>/dev/null || true
-  tmux kill-session -t "$layout_sess" 2>/dev/null || true
-  tmux kill-session -t "$foreign_sess" 2>/dev/null || true
-  git -C "$git_proj" worktree remove --force "$git_wt" >/dev/null 2>&1 || true
-  rm -rf "$proj" "$legacy_proj" "$git_proj" "$git_wt"
+  selftest_cleanup
+  trap - RETURN EXIT
   if [ "$rc" -eq 0 ]; then
     echo "  => roundtable selftest OK on this machine."
   else
@@ -1117,7 +1174,7 @@ main() {
     *) cat >&2 <<EOF
 usage: roundtable <command>
   init  [dir]         scaffold docs/design/roundtable/ + .roundtable/
-  new   <name>        create a named idea worktree
+  new   [--start] <name>  create a named idea worktree
   start [dir]         launch the 4-pane tmux workbench and attach
   stop  [dir]         kill this project's session (default: current directory)
   kickoff [xuan|su]   re-send the kickoff prompt (default: both; lead|impl legacy aliases)
