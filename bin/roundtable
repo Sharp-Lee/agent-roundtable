@@ -7,14 +7,14 @@
 # relaying mailbox-file writes between them (see bin/relay.py). It never
 # touches the agents' model loop or native abilities.
 #
-# Subcommands (also available as `rt`):
-#   roundtable init   [name|dir]   Scaffold .roundtable/ in a target project (default: cwd)
-#   roundtable new    [--start] <name>  Create a named idea worktree
-#   roundtable start  [name|dir]   Launch the per-project tmux workbench and attach
-#   roundtable stop   [name|dir]   Kill this project's session (default: cwd)
-#   roundtable kickoff [name] [xuan|su|lead|impl]  Re-send the kickoff prompt (default: both)
-#   roundtable list           List running roundtable sessions
-#   roundtable selftest       Verify relay/layout/key checks on this machine (no real CLIs needed)
+# Subcommands (`rt` is shorthand for `roundtable`):
+#   rt new [--start] <name> create a named idea worktree
+#   rt init [name|dir]      scaffold docs/design/roundtable/ + .roundtable/
+#   rt start [name|dir]     launch the workbench
+#   rt stop [name|dir]      stop this project's session
+#   rt kickoff [name] [xuan|su] re-send kickoff prompts (lead|impl legacy aliases)
+#   rt list                 list running roundtable sessions
+#   rt selftest             verify relay/layout/key checks on this machine (no real CLIs needed)
 #
 # Env overrides:
 #   CLAUDE_CMD (default: claude)   command to start the 玄 CLI
@@ -326,13 +326,13 @@ Keys:
   prefix+$mouse_key  toggle mouse on/off
 
 Commands:
-  rt init [name|dir]     scaffold docs/design/roundtable/ + .roundtable/
-  rt new [--start] <name>  create a named idea worktree
-  rt start [name|dir]    launch the workbench
-  rt stop [name|dir]     stop this project's session
-  rt kickoff [name] [xuan|su]  re-send kickoff prompts (lead|impl legacy aliases)
-  rt list                list running roundtable sessions
-  rt selftest            verify relay/layout/key checks
+  rt new [--start] <name> create a named idea worktree
+  rt init [name|dir]      scaffold docs/design/roundtable/ + .roundtable/
+  rt start [name|dir]     launch the workbench
+  rt stop [name|dir]      stop this project's session
+  rt kickoff [name] [xuan|su] re-send kickoff prompts (lead|impl legacy aliases)
+  rt list                 list running roundtable sessions
+  rt selftest             verify relay/layout/key checks
 
 Environment:
   RT_LAYOUT=workbench|classic
@@ -1240,13 +1240,13 @@ main() {
     selftest) cmd_selftest "$@" ;;
     *) cat >&2 <<EOF
 usage: roundtable <command>
-  init  [name|dir]    scaffold docs/design/roundtable/ + .roundtable/
-  new   [--start] <name>  create a named idea worktree
-  start [name|dir]    launch the 4-pane tmux workbench and attach
-  stop  [name|dir]    kill this project's session (default: current directory)
-  kickoff [name] [xuan|su]  re-send the kickoff prompt (default: both; lead|impl legacy aliases)
-  list                list running roundtable sessions
-  selftest            verify relay/layout/key checks on this machine (no real CLIs needed)
+  rt new [--start] <name> create a named idea worktree
+  rt init [name|dir]      scaffold docs/design/roundtable/ + .roundtable/
+  rt start [name|dir]     launch the workbench
+  rt stop [name|dir]      stop this project's session
+  rt kickoff [name] [xuan|su] re-send kickoff prompts (lead|impl legacy aliases)
+  rt list                 list running roundtable sessions
+  rt selftest             verify relay/layout/key checks on this machine (no real CLIs needed)
 
 Each project gets its own session (roundtable-<name>-<hash>), so multiple
 roundtables run concurrently. Override the name with SESSION=... if needed.

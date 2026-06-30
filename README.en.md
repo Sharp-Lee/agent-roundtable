@@ -85,10 +85,11 @@ roundtable start           # opens tmux workbench: top 玄|素, bottom command|r
 
 | Command | Purpose |
 |---|---|
-| `roundtable init [dir]` | scaffold docs design artifacts and `.roundtable/` runtime state |
-| `roundtable start [dir]` | start the 玄/素/command/relay workbench |
-| `roundtable kickoff [xuan|su]` | re-send kickoff; `lead|impl` are legacy wire aliases only |
-| `roundtable stop [dir]` | stop this project's tmux session |
+| `roundtable new <name>` | create a sibling git worktree for a new idea and initialize roundtable there |
+| `roundtable init [name\|dir]` | initialize the current directory, an existing named worktree, or a directory path |
+| `roundtable start [name\|dir]` | start the 玄/素/command/relay workbench for the current directory, named worktree, or directory path |
+| `roundtable kickoff [name] [xuan\|su]` | re-send kickoff for the current or named worktree; `lead\|impl` are legacy wire aliases only |
+| `roundtable stop [name\|dir]` | stop the tmux session for the current directory, named worktree, or directory path |
 | `roundtable list` | list running roundtable sessions |
 
 ## Workbench, Mouse, And Popups
@@ -220,22 +221,19 @@ If `prompts/` changed, re-run `roundtable init` in the project to refresh the co
 `.roundtable/prompts/` (init refreshes prompts and mailboxes but never clobbers your
 existing docs design artifacts or channel).
 
-**Starting a *different*, unrelated task in the same directory (rare).** `start` always resumes the
-existing artifacts, so to begin a clean, unrelated roundtable in a directory that already holds a
-finished project's artifacts, reset the design artifacts and runtime state yourself — **back them
-up first**, since they are not auto-saved:
+**Start a new idea in its own worktree.** Each idea should have its own git worktree instead of
+manually clearing old artifacts in the same directory:
 
 ```bash
-stamp=$(date +%Y%m%d%H%M%S)
-mkdir -p docs/design/_backup .roundtable-backup
-cp -R docs/design/roundtable docs/design/_backup/roundtable.$stamp
-cp -R .roundtable .roundtable-backup/roundtable.$stamp
-rm -rf docs/design/roundtable .roundtable
-roundtable init
+roundtable new my-idea
+roundtable start my-idea
 ```
 
-In normal one-directory-per-project use you never need this; prefer a separate directory for a
-separate project.
+By default, this creates branch `codex/my-idea` from the current `HEAD` and a sibling worktree such
+as `../agent-roundtable.my-idea`. Code changes, Roundtable memory, and the tmux session for that
+idea all live in that worktree.
+
+`roundtable start` without a name still resumes the current directory's state.
 
 ## What lives where
 

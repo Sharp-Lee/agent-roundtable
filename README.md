@@ -77,10 +77,11 @@ roundtable start           # 打开 tmux workbench：上 玄|素，下 command|r
 
 | 命令 | 用途 |
 |---|---|
-| `roundtable init [dir]` | 生成 docs 设计产物和 `.roundtable/` 运行时态 |
-| `roundtable start [dir]` | 启动 玄/素/command/relay workbench |
-| `roundtable kickoff [xuan|su]` | 重发 kickoff；`lead|impl` 仅作 legacy wire 别名 |
-| `roundtable stop [dir]` | 停止当前项目的 tmux 会话 |
+| `roundtable new <name>` | 为一个新 idea 创建 sibling git worktree，并在其中初始化 roundtable |
+| `roundtable init [name\|dir]` | 初始化当前目录、已有 named worktree，或指定目录 |
+| `roundtable start [name\|dir]` | 启动当前目录、named worktree，或指定目录的 玄/素/command/relay workbench |
+| `roundtable kickoff [name] [xuan\|su]` | 对当前或 named worktree 重发 kickoff；`lead\|impl` 仅作 legacy wire 别名 |
+| `roundtable stop [name\|dir]` | 停止当前、named worktree，或指定目录的 tmux 会话 |
 | `roundtable list` | 列出正在运行的 roundtable 会话 |
 
 ## Workbench、鼠标与弹窗
@@ -200,20 +201,18 @@ roundtable stop && roundtable start      # 在你的项目目录下
 如果 `prompts/` 有变化，在项目里重新跑 `roundtable init` 以刷新 `.roundtable/prompts/` 下的副本
 （init 会刷新 prompts 和 mailbox，但绝不覆盖已有的 docs 设计产物或 channel）。
 
-**在同一目录里开一个*不同的*、无关的任务（罕见）。** `start` 总是恢复已有产物，所以若要在一个
-已经存有"已完成项目"产物的目录里开一轮干净、无关的 roundtable，需自己重置设计产物和运行时态——
-**先备份**，因为它们不会被自动保存：
+**为新 idea 开一个独立 worktree。** 每个 idea 都应该有自己的 git worktree，而不是在同一目录里
+手动清空旧产物：
 
 ```bash
-stamp=$(date +%Y%m%d%H%M%S)
-mkdir -p docs/design/_backup .roundtable-backup
-cp -R docs/design/roundtable docs/design/_backup/roundtable.$stamp
-cp -R .roundtable .roundtable-backup/roundtable.$stamp
-rm -rf docs/design/roundtable .roundtable
-roundtable init
+roundtable new my-idea
+roundtable start my-idea
 ```
 
-在正常的"一目录一项目"用法里你永远用不到这个；不同项目请用不同目录。
+默认会从当前 `HEAD` 创建分支 `codex/my-idea`，并创建类似 `../agent-roundtable.my-idea` 的 sibling
+worktree。这个 idea 的代码改动、Roundtable 记忆和 tmux session 都留在那个 worktree 里。
+
+不带 name 的 `roundtable start` 仍然只恢复当前目录的状态。
 
 ## 各文件的归属
 
