@@ -470,7 +470,7 @@ _target_from_arg() {
   if [ -z "$arg" ]; then
     printf '%s\n' "$PWD"
   elif _looks_like_dir_arg "$arg"; then
-    cd "$arg" && pwd
+    (cd "$arg" && pwd)
   else
     _worktree_for_name "$arg"
   fi
