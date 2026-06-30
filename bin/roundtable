@@ -406,16 +406,20 @@ cmd_popup() {
 # State-aware: also re-read the durable artifacts so a fresh pane starts clean
 # (artifacts are empty templates) or resumes an in-progress project.
 _kickoff_text() {
-  local role="$1" wire contract display tail
+  local role="$1" wire contract display expert tail
   wire="$(_role_wire "$role")" || die "unknown role: $role"
   contract="$(_role_contract "$wire")"
   display="$(_role_display "$wire")"
+  case "$wire" in
+    lead) expert=".roundtable/roles/xuan.expert.md" ;;
+    impl) expert=".roundtable/roles/su.expert.md" ;;
+  esac
   if [ "$wire" = "lead" ]; then
-    tail="otherwise ask the arbiter for the idea and start Phase 0."
+    tail="otherwise ask the arbiter for the idea and start Phase 0a."
   else
     tail="otherwise acknowledge and wait."
   fi
-  printf 'You are %s. Read .roundtable/prompts/protocol.md then .roundtable/prompts/%s -- that is your operating contract. Restore state from .roundtable/_idea.md, docs/design/roundtable/architecture.md, docs/design/roundtable/flow.md, docs/design/roundtable/requirements.md, docs/design/roundtable/decisions.md, .roundtable/channel.md, and your inbox. If docs/design/roundtable/requirements.md or decisions.md is missing but legacy .roundtable/requirements.md or decisions.md exists, use the legacy file once and migrate it before continuing. Workflow: Phase 0 idea roundtable -> Gate 0; Phase 1 final-form design -> Gate 1; Phase 2 detailed requirements -> Gate 2; Phase 3 build loop. Panels are one-shot internal reviews, not relay participants. If work is already in progress, continue from the last handoff; %s' "$display" "$contract" "$tail"
+  printf 'You are %s. Read .roundtable/prompts/protocol.md, then .roundtable/prompts/%s, then %s -- that is your full operating contract for this idea. Restore state from .roundtable/_idea.md, docs/design/roundtable/architecture.md, docs/design/roundtable/flow.md, docs/design/roundtable/requirements.md, docs/design/roundtable/decisions.md, .roundtable/channel.md, and your inbox. If docs/design/roundtable/requirements.md or decisions.md is missing but legacy .roundtable/requirements.md or decisions.md exists, use the legacy file once and migrate it before continuing. Workflow: Phase 0a specialist role binding -> Phase 0 idea roundtable -> Gate 0; Phase 1 final-form design -> Gate 1; Phase 2 detailed requirements -> Gate 2; Phase 3 build loop. Specialist bindings are persistent idea-scoped competence overlays; panels are one-shot blind-spot reviews, not relay participants. If work is already in progress, continue from the last handoff; %s' "$display" "$contract" "$expert" "$tail"
 }
 
 # Stable, unique-per-absolute-path, readable tmux session name for a project dir.
