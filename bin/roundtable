@@ -478,6 +478,40 @@ _target_from_arg() {
   fi
 }
 
+_write_expert_binding() {
+  local file="$1" display="$2" contract="$3" focus="$4"
+  [ -f "$file" ] && return 0
+  cat > "$file" <<EOF
+# Specialist Binding - $display
+
+## Source Idea
+
+Unbound. During Phase 0a, summarize the arbiter's raw idea here before Phase 0 starts.
+
+## Selected Specialist Roles
+
+- Unbound
+  - Source: agency-agents or local role source
+  - Why selected: pending Phase 0a convergence
+  - What this changes in $display's work: pending Phase 0a convergence
+
+## Operating Emphasis
+
+$focus
+
+## Boundaries
+
+This specialist overlay never overrides protocol.md, $contract, mailbox rules, gate rules, or commit ownership.
+EOF
+}
+
+_init_expert_bindings() {
+  local rt="$1"
+  mkdir -p "$rt/roles"
+  _write_expert_binding "$rt/roles/xuan.expert.md" "玄" "xuan.md" "Planning, product, architecture, requirements, review, and decision judgment for this idea."
+  _write_expert_binding "$rt/roles/su.expert.md" "素" "su.md" "Engineering, implementation, verification, reliability, and operational judgment for this idea."
+}
+
 cmd_new() {
   local start_after=0 name="${1:-}"
   if [ "$name" = "--start" ]; then
@@ -505,7 +539,7 @@ cmd_new() {
     git -C "$root" branch -D "$branch" >/dev/null 2>&1 || true
     die "could not reset roundtable state in $wt"
   fi
-  if ! "$TOOL_ROOT/bin/roundtable" init "$wt"; then
+  if ! bash "$TOOL_ROOT/bin/roundtable" init "$wt"; then
     git -C "$root" worktree remove --force "$wt" >/dev/null 2>&1 || true
     git -C "$root" branch -D "$branch" >/dev/null 2>&1 || true
     die "could not initialize roundtable in $wt"
@@ -549,6 +583,7 @@ cmd_init() {
   # Runtime handoff state (do not clobber durable history).
   [ -f "$rt/_idea.md" ]   || printf '# Direction\n\n<Phase 0 direction statement; Gate 0 lock goes here.>\n' > "$rt/_idea.md"
   [ -f "$rt/channel.md" ] || cp "$TOOL_ROOT/templates/channel.md" "$rt/channel.md"
+  _init_expert_bindings "$rt"
 
   # Mailboxes (transient) + role contracts (always refreshed from the tool).
   : > "$rt/to-lead.md"
@@ -562,6 +597,7 @@ cmd_init() {
 # Runtime relay state -- design artifacts live in docs/design/roundtable/.
 _idea.md
 channel.md
+roles/
 prompts/
 to-lead.md
 to-impl.md
