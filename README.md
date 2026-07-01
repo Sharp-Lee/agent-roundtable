@@ -63,6 +63,9 @@ Phase 3  构建循环        逐条需求：分配 -> 质疑 -> 素实现+提交
 `.roundtable/roles/xuan.expert.md` 和 `.roundtable/roles/su.expert.md`。启动时 agent 会按
 `protocol.md -> xuan.md/su.md -> expert.md` 的顺序读取契约。
 
+文档入口见 [`docs/README.md`](docs/README.md)：它区分当前协议、当前设计基线、历史设计证据、
+实现过程记录和可复用经验。
+
 ## 依赖
 
 - `tmux`、`python3`（3.8+，仅标准库），以及 PATH 上的两个 CLI（`claude`、`codex`）。

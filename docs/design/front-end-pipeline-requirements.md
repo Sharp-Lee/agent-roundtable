@@ -1,5 +1,9 @@
 # 详细需求:roundtable「前置设计流程」
 
+> **历史说明:** 本文是 2026-06-22 Roundtable v2 前置设计流程的历史需求证据。
+> 当前权威协议以 `prompts/protocol.md`、`prompts/xuan.md`、`prompts/su.md` 和
+> `docs/design/roundtable/*` 为准；若本文状态、术语或路径与当前文件冲突，以当前文件为准。
+
 > **阶段:** ③ 详细需求 · **🔒 基线已锁(关卡 2 通过 @ 2026-06-22)· 12 组 / 48 条 / pending=0** · 承接 [`front-end-pipeline-final-form.md`](./front-end-pipeline-final-form.md)
 > **粒度:** 一个流程节点 → 多条原子需求(n:1),每条单独清晰描述。
 > **分工:** `作用(WHY)` / `实现什么(WHAT)` 由 **arbiter(你)** 参与拍板(每条不跳过);

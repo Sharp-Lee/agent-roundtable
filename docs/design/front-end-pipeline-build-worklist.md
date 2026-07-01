@@ -1,5 +1,9 @@
 # Requirements — roundtable「前置设计流程」(玄/素 v2)
 
+> **历史说明:** 本文是 2026-06-22 Roundtable v2 前置设计流程的历史构建清单。
+> 当前权威协议以 `prompts/protocol.md`、`prompts/xuan.md`、`prompts/su.md` 和
+> `docs/design/roundtable/*` 为准；本文保留用于追溯当时的 build order 和 dry-run 结论。
+
 > Phase 0/1 已在 dry-run roundtable 走完;此清单即 Gate A 已批准的 Phase 2 工作清单。
 > **完整 WHY/WHAT/HOW/验收** 见 [`front-end-pipeline-requirements.md`](./front-end-pipeline-requirements.md)(48 条原子需求)
 > 与最终形态 [`front-end-pipeline-final-form.md`](./front-end-pipeline-final-form.md)。

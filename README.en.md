@@ -71,6 +71,10 @@ idea's specialist bindings live in `.roundtable/roles/xuan.expert.md` and
 `.roundtable/roles/su.expert.md`. On startup, agents read `protocol.md -> xuan.md/su.md ->
 expert.md`.
 
+The documentation entry point is [`docs/README.md`](docs/README.md). It separates current
+contracts, the current design baseline, historical design evidence, implementation-process notes,
+and reusable learnings.
+
 ## Requirements
 
 - `tmux`, `python3` (3.8+, stdlib only), and the two CLIs on PATH (`claude`, `codex`).
